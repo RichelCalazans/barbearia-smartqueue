@@ -17,7 +17,21 @@ export function useQueue() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as QueueItem));
+      const items = snapshot.docs.map(d => {
+        const data = d.data() as QueueItem;
+        // Ensure horaPrevista is always in HH:MM format
+        if (typeof data.horaPrevista === 'string' && data.horaPrevista.match(/^\d{2}:\d{2}$/)) {
+          return { id: d.id, ...data };
+        }
+        // If horaPrevista is malformed, try to extract HH:MM part
+        if (typeof data.horaPrevista === 'string') {
+          const match = data.horaPrevista.match(/^(\d{2}:\d{2})/);
+          if (match) {
+            data.horaPrevista = match[1];
+          }
+        }
+        return { id: d.id, ...data };
+      });
       setQueue(items);
       setLoading(false);
     });
