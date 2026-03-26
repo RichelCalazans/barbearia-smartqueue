@@ -57,7 +57,9 @@ export function BarberDashboard() {
   const [state, setState] = useState<AppState | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | null>(null);
+  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'PAUSE_TIME' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | null>(null);
+  const [pauseMinutes, setPauseMinutes] = useState<number>(15);
+  const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [tempConfig, setTempConfig] = useState<AppConfig | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +106,28 @@ export function BarberDashboard() {
     };
   }, [isAdmin]);
 
+  // Auto-resume when pause time expires
+  useEffect(() => {
+    if (!state?.agendaPausada || !state?.tempoRetomada) return;
+
+    const checkAndResume = async () => {
+      const remaining = Math.max(0, state.tempoRetomada! - Date.now());
+      setTimeRemaining(Math.ceil(remaining / 1000)); // Convert to seconds
+
+      if (remaining <= 0) {
+        try {
+          await ConfigService.togglePause(false);
+        } catch (err) {
+          console.error('Error auto-resuming:', err);
+        }
+      }
+    };
+
+    checkAndResume();
+    const interval = setInterval(checkAndResume, 1000); // Check every second for accurate countdown
+    return () => clearInterval(interval);
+  }, [state?.agendaPausada, state?.tempoRetomada]);
+
   const handleAction = async () => {
     if (!modalType || !config) return;
     setSubmitting(true);
@@ -141,7 +165,12 @@ export function BarberDashboard() {
           await ConfigService.toggleAgenda(false);
           break;
         case 'PAUSE_AGENDA':
-          await ConfigService.togglePause(true);
+          // Show time selection modal
+          setSubmitting(false);
+          setModalType('PAUSE_TIME');
+          return;
+        case 'PAUSE_TIME':
+          await ConfigService.togglePause(true, pauseMinutes);
           break;
         case 'RESUME_AGENDA':
           await ConfigService.togglePause(false);
@@ -484,7 +513,7 @@ export function BarberDashboard() {
                 <h3 className="text-lg font-bold text-[#F1F5F9]">Controle da Agenda</h3>
                 <p className="text-sm text-[#64748B]">
                   {state?.agendaPausada
-                    ? '⏸️ A agenda está pausada. Nenhum novo cliente pode entrar.'
+                    ? `⏸️ Pausada ${timeRemaining > 0 ? `- Retomando em ${Math.floor(timeRemaining / 60)}m ${timeRemaining % 60}s` : 'Nenhum novo cliente pode entrar.'}`
                     : state?.agendaAberta
                     ? '✅ A agenda está aberta e recebendo novos clientes.'
                     : '❌ A agenda está fechada. Clientes não podem entrar na fila.'}
@@ -560,6 +589,7 @@ export function BarberDashboard() {
           modalType === 'ABSENT' ? 'Marcar como Ausente' :
           modalType === 'OPEN_AGENDA' ? 'Abrir Agenda' :
           modalType === 'PAUSE_AGENDA' ? 'Pausar Agenda' :
+          modalType === 'PAUSE_TIME' ? 'Quanto Tempo Pausar?' :
           modalType === 'RESUME_AGENDA' ? 'Retomar Agenda' :
           modalType === 'CLOSE_AGENDA_CHOICE' ? 'Encerrar Dia' :
           modalType === 'CLOSE_AGENDA_CLEAR' ? 'Encerrar Dia e Fila' :
@@ -569,7 +599,18 @@ export function BarberDashboard() {
           modalType === 'MANAGE_SERVICES' ? 'Gerenciar Serviços' : 'Fechar Agenda'
         }
         footer={
-          modalType === 'CLOSE_AGENDA_CHOICE' ? (
+          modalType === 'PAUSE_TIME' ? (
+            <>
+              <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+              <Button
+                variant="primary"
+                onClick={handleAction}
+                loading={submitting}
+              >
+                Pausar por {pauseMinutes > 60 ? `${Math.floor(pauseMinutes / 60)}h ${pauseMinutes % 60}m` : `${pauseMinutes}m`}
+              </Button>
+            </>
+          ) : modalType === 'CLOSE_AGENDA_CHOICE' ? (
             <>
               <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
               <div className="flex gap-2 flex-1">
@@ -783,6 +824,33 @@ export function BarberDashboard() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        ) : modalType === 'PAUSE_TIME' ? (
+          <div className="space-y-4">
+            <p className="text-[#64748B] text-sm mb-6">Selecione quanto tempo deseja pausar a agenda:</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { minutes: 15, label: '15 min' },
+                { minutes: 30, label: '30 min' },
+                { minutes: 45, label: '45 min' },
+                { minutes: 60, label: '1 hora' },
+                { minutes: 90, label: '1h 30m' },
+                { minutes: 120, label: '2 horas' },
+              ].map(option => (
+                <button
+                  key={option.minutes}
+                  onClick={() => setPauseMinutes(option.minutes)}
+                  className={cn(
+                    'p-4 rounded-xl font-bold text-sm uppercase tracking-wider transition-all border-2',
+                    pauseMinutes === option.minutes
+                      ? 'bg-[#00D4A5]/20 border-[#00D4A5] text-[#00D4A5]'
+                      : 'bg-[#1A1A1A] border-[#1E1E1E] text-[#64748B] hover:border-[#00D4A5]/50'
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
           </div>
         ) : modalType === 'MANAGE_SERVICES' ? (

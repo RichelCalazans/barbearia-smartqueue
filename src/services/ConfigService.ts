@@ -148,11 +148,18 @@ export class ConfigService {
   /**
    * Pauses or resumes the agenda.
    */
-  static async togglePause(paused: boolean): Promise<void> {
+  static async togglePause(paused: boolean, minutesToResume?: number): Promise<void> {
     try {
-      await setDoc(doc(db, this.STATE_PATH), {
+      const updates: any = {
         agendaPausada: paused,
-      }, { merge: true });
+      };
+      if (paused && minutesToResume) {
+        // Calculate when to auto-resume
+        updates.tempoRetomada = Date.now() + minutesToResume * 60 * 1000;
+      } else {
+        updates.tempoRetomada = null;
+      }
+      await setDoc(doc(db, this.STATE_PATH), updates, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, this.STATE_PATH);
     }

@@ -78,6 +78,7 @@ export interface AppState {
   agendaAberta: boolean;
   agendaPausada: boolean;
   dataAbertura: string | null;
+  tempoRetomada?: number | null; // timestamp when to auto-resume
 }
 
 export interface AppUser {
