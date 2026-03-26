@@ -57,7 +57,7 @@ export function BarberDashboard() {
   const [state, setState] = useState<AppState | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'PAUSE_AGENDA' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | null>(null);
+  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | null>(null);
   const [tempConfig, setTempConfig] = useState<AppConfig | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +119,25 @@ export function BarberDashboard() {
           await ConfigService.toggleAgenda(true);
           break;
         case 'CLOSE_AGENDA':
+          // Se tem clientes na fila, mostrar opções
+          if (waiting.length > 0) {
+            setSubmitting(false);
+            setModalType('CLOSE_AGENDA_CHOICE');
+            return;
+          }
+          await ConfigService.toggleAgenda(false);
+          break;
+        case 'CLOSE_AGENDA_CLEAR':
+          // Limpar fila e fechar
+          for (const item of queue) {
+            if (item.status === 'AGUARDANDO') {
+              await QueueService.updateStatus(item.id, 'CANCELADO');
+            }
+          }
+          await ConfigService.toggleAgenda(false);
+          break;
+        case 'CLOSE_AGENDA_KEEP':
+          // Manter fila e fechar
           await ConfigService.toggleAgenda(false);
           break;
         case 'PAUSE_AGENDA':
@@ -542,22 +561,47 @@ export function BarberDashboard() {
           modalType === 'OPEN_AGENDA' ? 'Abrir Agenda' :
           modalType === 'PAUSE_AGENDA' ? 'Pausar Agenda' :
           modalType === 'RESUME_AGENDA' ? 'Retomar Agenda' :
+          modalType === 'CLOSE_AGENDA_CHOICE' ? 'Encerrar Dia' :
+          modalType === 'CLOSE_AGENDA_CLEAR' ? 'Encerrar Dia e Fila' :
+          modalType === 'CLOSE_AGENDA_KEEP' ? 'Encerrar Dia (Manter Fila)' :
           modalType === 'SETTINGS' ? 'Configurações Automáticas' :
           modalType === 'MANAGE_USERS' ? 'Gerenciar Usuários' :
           modalType === 'MANAGE_SERVICES' ? 'Gerenciar Serviços' : 'Fechar Agenda'
         }
-        footer={modalType !== 'MANAGE_USERS' && modalType !== 'MANAGE_SERVICES' ? (
-          <>
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-            <Button
-              variant={modalType === 'ABSENT' || modalType === 'CLOSE_AGENDA' ? 'danger' : 'primary'}
-              onClick={handleAction}
-              loading={submitting}
-            >
-              {modalType === 'SETTINGS' ? 'Salvar' : 'Confirmar'}
-            </Button>
-          </>
-        ) : undefined}
+        footer={
+          modalType === 'CLOSE_AGENDA_CHOICE' ? (
+            <>
+              <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+              <div className="flex gap-2 flex-1">
+                <Button
+                  variant="outline"
+                  onClick={() => { setModalType('CLOSE_AGENDA_KEEP'); }}
+                  className="flex-1"
+                >
+                  Manter Fila
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={() => { setModalType('CLOSE_AGENDA_CLEAR'); }}
+                  className="flex-1"
+                >
+                  Limpar Fila
+                </Button>
+              </div>
+            </>
+          ) : modalType !== 'MANAGE_USERS' && modalType !== 'MANAGE_SERVICES' ? (
+            <>
+              <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+              <Button
+                variant={modalType === 'ABSENT' || modalType === 'CLOSE_AGENDA' || modalType === 'CLOSE_AGENDA_CLEAR' ? 'danger' : 'primary'}
+                onClick={handleAction}
+                loading={submitting}
+              >
+                {modalType === 'SETTINGS' ? 'Salvar' : 'Confirmar'}
+              </Button>
+            </>
+          ) : undefined
+        }
       >
         {modalType === 'MANAGE_USERS' ? (
           <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
@@ -885,6 +929,9 @@ export function BarberDashboard() {
              modalType === 'OPEN_AGENDA' ? 'Deseja abrir a agenda para hoje? Clientes poderão entrar na fila através do link público.' :
              modalType === 'PAUSE_AGENDA' ? 'Deseja pausar a agenda? Nenhum novo cliente poderá entrar, mas os que já estão continuarão sendo atendidos.' :
              modalType === 'RESUME_AGENDA' ? 'Deseja retomar a agenda? Clientes poderão entrar na fila novamente.' :
+             modalType === 'CLOSE_AGENDA_CHOICE' ? `Você tem ${waiting.length} cliente${waiting.length !== 1 ? 's' : ''} na fila. O que deseja fazer?\n\n• Manter Fila: O dia encerra, mas clientes continuarão na fila para amanhã.\n• Limpar Fila: O dia encerra e todos os clientes em espera serão cancelados.` :
+             modalType === 'CLOSE_AGENDA_CLEAR' ? `Deseja encerrar o dia E limpar a fila? Os ${waiting.length} cliente(s) em espera serão cancelados.` :
+             modalType === 'CLOSE_AGENDA_KEEP' ? `Deseja encerrar o dia mantendo a fila? Os ${waiting.length} cliente(s) continuarão na fila para amanhã.` :
              'Deseja fechar a agenda? Novos clientes não poderão entrar na fila, mas os que já estão nela continuarão sendo atendidos.'}
           </p>
         )}
