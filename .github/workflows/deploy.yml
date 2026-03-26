@@ -12,19 +12,19 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x]
+        node-version: [22.x] # 1. Atualizado para o Node mais moderno e estável
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4 # 2. Atualizado de v3 para v4 (elimina o aviso do Node 20)
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4 # 2. Atualizado de v3 para v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install --no-package-lock
+        run: npm install # 3. Substituído 'npm ci' por 'npm install' para forçar o download dos binários do Linux
 
       - name: Build
         run: npm run build
