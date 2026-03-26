@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Users, ChevronRight, Pencil, Cake, Phone, Calendar, Clock, Shield, ShieldOff } from 'lucide-react';
+import { Search, Users, ChevronRight, Pencil, Cake, Phone, Calendar, Clock, Shield, ShieldOff, Trash2 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -121,6 +121,19 @@ export function ClientsPage({ config }: ClientsPageProps) {
       await ClientService.toggleActive(selectedClient.id, newAtivo);
       setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, ativo: newAtivo } : c));
       setSelectedClient(prev => prev ? { ...prev, ativo: newAtivo } : null);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!selectedClient) return;
+    if (!confirm(`Deseja remover o cliente "${selectedClient.nome}"? Esta ação não pode ser desfeita.`)) return;
+    setSubmitting(true);
+    try {
+      await ClientService.deleteClient(selectedClient.id);
+      setClients(prev => prev.filter(c => c.id !== selectedClient.id));
+      setSelectedClient(null);
     } finally {
       setSubmitting(false);
     }
@@ -322,6 +335,14 @@ export function ClientsPage({ config }: ClientsPageProps) {
                     loading={submitting}
                   >
                     {selectedClient.ativo ? <><ShieldOff className="mr-1.5 h-3.5 w-3.5" /> Desativar</> : <><Shield className="mr-1.5 h-3.5 w-3.5" /> Reativar</>}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={handleDeleteClient}
+                    loading={submitting}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
 

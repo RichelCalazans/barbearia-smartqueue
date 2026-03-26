@@ -15,7 +15,8 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() &&
         (request.auth.token.email == "richelcalazans6@gmail.com" ||
-         request.auth.token.email == "teste@teste.com");
+         request.auth.token.email == "teste@teste.com" ||
+         request.auth.uid == "x4dNFkgfUaM9cAr9n61JsU4oQ0v2");
     }
 
     function hasRequiredFields(fields) {
@@ -81,9 +82,8 @@ service cloud.firestore {
     }
 
     match /config/{docId} {
-      allow get: if docId == 'state' || isAdmin();
+      allow get, write: if isAuthenticated();
       allow list: if isAdmin();
-      allow write: if isAdmin();
     }
 
     match /users/{userId} {

@@ -5,6 +5,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  deleteDoc,
   doc,
   getDoc,
   serverTimestamp,
@@ -131,6 +132,16 @@ export class ClientService {
       await updateDoc(doc(db, path, id), { ativo });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
+      throw error;
+    }
+  }
+
+  static async deleteClient(id: string): Promise<void> {
+    const path = this.COLLECTION;
+    try {
+      await deleteDoc(doc(db, path, id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
       throw error;
     }
   }

@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { db, auth } from '../firebase';
-import firebaseConfig from '../../firebase-applet-config.json';
+import firebaseConfig from '../firebase.config';
 import { AppUser } from '../types';
 
 export class UserService {

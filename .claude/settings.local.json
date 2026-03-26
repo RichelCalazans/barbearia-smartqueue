@@ -19,7 +19,12 @@
       "Bash(grep -r \"font-\\\\|text-\\\\[\" /Users/richelcalazans/barbearia-smartqueue/src/components/*.tsx)",
       "Bash(grep -r \"px-\\\\|py-\\\\|p-\\\\|gap-\\\\|space-\" /Users/richelcalazans/barbearia-smartqueue/src/components/*.tsx)",
       "Bash(grep -r \"icon\\\\|Icon\\\\|lucide\" /Users/richelcalazans/barbearia-smartqueue/src/pages/*.tsx)",
-      "Bash(grep -A 5 \"from ''lucide-react''\" /Users/richelcalazans/barbearia-smartqueue/src/pages/ClientView.tsx)"
+      "Bash(grep -A 5 \"from ''lucide-react''\" /Users/richelcalazans/barbearia-smartqueue/src/pages/ClientView.tsx)",
+      "Bash(firebase deploy:*)",
+      "Bash(npm install:*)",
+      "Bash(grep:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"feat: add delete client functionality:*)"
     ]
   }
 }
