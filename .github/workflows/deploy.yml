@@ -6,25 +6,29 @@ on:
   pull_request:
     branches: [main]
 
+# Silencia o aviso do Node 20 e prepara para a atualização de junho de 2026
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        node-version: [22.x] # 1. Atualizado para o Node mais moderno e estável
+        node-version: [22.x]
 
     steps:
-      - uses: actions/checkout@v4 # 2. Atualizado de v3 para v4 (elimina o aviso do Node 20)
+      - uses: actions/checkout@v4
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4 # 2. Atualizado de v3 para v4
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install # 3. Substituído 'npm ci' por 'npm install' para forçar o download dos binários do Linux
+        run: npm install
 
       - name: Build
         run: npm run build
@@ -32,7 +36,6 @@ jobs:
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          rebaseConflicts: true
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
