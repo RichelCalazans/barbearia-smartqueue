@@ -137,7 +137,21 @@ export class ConfigService {
     try {
       await setDoc(doc(db, this.STATE_PATH), {
         agendaAberta: open,
+        agendaPausada: false,
         dataAbertura: open ? new Date().toISOString().split('T')[0] : null,
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, this.STATE_PATH);
+    }
+  }
+
+  /**
+   * Pauses or resumes the agenda.
+   */
+  static async togglePause(paused: boolean): Promise<void> {
+    try {
+      await setDoc(doc(db, this.STATE_PATH), {
+        agendaPausada: paused,
       }, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, this.STATE_PATH);

@@ -27,7 +27,8 @@
       "Bash(git commit -m \"feat: add delete client functionality:*)",
       "Bash(git commit -m \"fix: format horaPrevista to ensure HH:MM format in queue display:*)",
       "Bash(git commit -m \"fix: add defensive formatting for horaPrevista display:*)",
-      "Bash(git commit -m \"fix: allow admin to delete clients in Firestore rules:*)"
+      "Bash(git commit -m \"fix: allow admin to delete clients in Firestore rules:*)",
+      "Bash(git commit -m \"feat: add pause/resume agenda functionality:*)"
     ]
   }
 }

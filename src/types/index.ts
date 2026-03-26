@@ -76,6 +76,7 @@ export interface AppConfig {
 
 export interface AppState {
   agendaAberta: boolean;
+  agendaPausada: boolean;
   dataAbertura: string | null;
 }
 

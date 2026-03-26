@@ -9,6 +9,7 @@ import {
   Clock,
   AlertCircle,
   Play,
+  Pause,
   Check,
   UserMinus,
   Lock,
@@ -56,7 +57,7 @@ export function BarberDashboard() {
   const [state, setState] = useState<AppState | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | null>(null);
+  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'PAUSE_AGENDA' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | null>(null);
   const [tempConfig, setTempConfig] = useState<AppConfig | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +120,12 @@ export function BarberDashboard() {
           break;
         case 'CLOSE_AGENDA':
           await ConfigService.toggleAgenda(false);
+          break;
+        case 'PAUSE_AGENDA':
+          await ConfigService.togglePause(true);
+          break;
+        case 'RESUME_AGENDA':
+          await ConfigService.togglePause(false);
           break;
         case 'SETTINGS':
           if (tempConfig) {
@@ -453,29 +460,59 @@ export function BarberDashboard() {
         {/* Agenda Controls */}
         <section className="pt-8 border-t border-[#1E1E1E]">
           <Card className="bg-gradient-to-br from-[#111111] to-[#0A0A0A] border-[#00D4A5]/10">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="space-y-1 text-center md:text-left">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="space-y-1 text-center md:text-left flex-1">
                 <h3 className="text-lg font-bold text-[#F1F5F9]">Controle da Agenda</h3>
                 <p className="text-sm text-[#64748B]">
-                  {state?.agendaAberta 
-                    ? 'A agenda está aberta e recebendo novos clientes.' 
-                    : 'A agenda está fechada. Clientes não podem entrar na fila.'}
+                  {state?.agendaPausada
+                    ? '⏸️ A agenda está pausada. Nenhum novo cliente pode entrar.'
+                    : state?.agendaAberta
+                    ? '✅ A agenda está aberta e recebendo novos clientes.'
+                    : '❌ A agenda está fechada. Clientes não podem entrar na fila.'}
                 </p>
               </div>
-              <Button 
-                variant={state?.agendaAberta ? 'outline' : 'primary'}
-                className="h-12 px-8 font-bold min-w-[200px]"
-                onClick={() => {
-                  setModalType(state?.agendaAberta ? 'CLOSE_AGENDA' : 'OPEN_AGENDA');
-                  setIsModalOpen(true);
-                }}
-              >
-                {state?.agendaAberta ? (
-                  <><Lock className="mr-2 h-4 w-4" /> Fechar Agenda</>
-                ) : (
-                  <><Unlock className="mr-2 h-4 w-4" /> Abrir Agenda</>
+              <div className="flex gap-2 flex-wrap md:flex-nowrap justify-center md:justify-end">
+                {!state?.agendaAberta && (
+                  <Button
+                    variant="primary"
+                    className="h-12 px-6 font-bold"
+                    onClick={() => {
+                      setModalType('OPEN_AGENDA');
+                      setIsModalOpen(true);
+                    }}
+                  >
+                    <Unlock className="mr-2 h-4 w-4" /> Abrir
+                  </Button>
                 )}
-              </Button>
+                {state?.agendaAberta && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="h-12 px-6 font-bold"
+                      onClick={() => {
+                        setModalType(state.agendaPausada ? 'RESUME_AGENDA' : 'PAUSE_AGENDA');
+                        setIsModalOpen(true);
+                      }}
+                    >
+                      {state.agendaPausada ? (
+                        <><Play className="mr-2 h-4 w-4" /> Retomar</>
+                      ) : (
+                        <><Pause className="mr-2 h-4 w-4" /> Pausar</>
+                      )}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="h-12 px-6 font-bold"
+                      onClick={() => {
+                        setModalType('CLOSE_AGENDA');
+                        setIsModalOpen(true);
+                      }}
+                    >
+                      <Lock className="mr-2 h-4 w-4" /> Fechar
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </Card>
         </section>
@@ -503,6 +540,8 @@ export function BarberDashboard() {
           modalType === 'FINALIZE' ? 'Finalizar Atendimento' :
           modalType === 'ABSENT' ? 'Marcar como Ausente' :
           modalType === 'OPEN_AGENDA' ? 'Abrir Agenda' :
+          modalType === 'PAUSE_AGENDA' ? 'Pausar Agenda' :
+          modalType === 'RESUME_AGENDA' ? 'Retomar Agenda' :
           modalType === 'SETTINGS' ? 'Configurações Automáticas' :
           modalType === 'MANAGE_USERS' ? 'Gerenciar Usuários' :
           modalType === 'MANAGE_SERVICES' ? 'Gerenciar Serviços' : 'Fechar Agenda'
@@ -844,6 +883,8 @@ export function BarberDashboard() {
             {modalType === 'FINALIZE' ? `Deseja confirmar a finalização do atendimento de ${inService?.clienteNome}? O histórico será salvo e a média de tempo atualizada.` :
              modalType === 'ABSENT' ? `Deseja marcar ${inService?.clienteNome} como ausente? O cliente será removido da fila e o próximo será chamado.` :
              modalType === 'OPEN_AGENDA' ? 'Deseja abrir a agenda para hoje? Clientes poderão entrar na fila através do link público.' :
+             modalType === 'PAUSE_AGENDA' ? 'Deseja pausar a agenda? Nenhum novo cliente poderá entrar, mas os que já estão continuarão sendo atendidos.' :
+             modalType === 'RESUME_AGENDA' ? 'Deseja retomar a agenda? Clientes poderão entrar na fila novamente.' :
              'Deseja fechar a agenda? Novos clientes não poderão entrar na fila, mas os que já estão nela continuarão sendo atendidos.'}
           </p>
         )}
