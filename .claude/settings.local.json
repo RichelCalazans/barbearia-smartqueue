@@ -25,7 +25,8 @@
       "Bash(grep:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"feat: add delete client functionality:*)",
-      "Bash(git commit -m \"fix: format horaPrevista to ensure HH:MM format in queue display:*)"
+      "Bash(git commit -m \"fix: format horaPrevista to ensure HH:MM format in queue display:*)",
+      "Bash(git commit -m \"fix: add defensive formatting for horaPrevista display:*)"
     ]
   }
 }

@@ -430,7 +430,13 @@ export function BarberDashboard() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-[#F1F5F9]">{item.horaPrevista}</p>
+                  <p className="text-sm font-bold text-[#F1F5F9]">
+                    {typeof item.horaPrevista === 'string'
+                      ? item.horaPrevista.match(/^\d{2}:\d{2}/)
+                        ? item.horaPrevista
+                        : item.horaPrevista.substring(0, 5)
+                      : '00:00'}
+                  </p>
                   <p className="text-[10px] uppercase tracking-wider text-[#64748B] font-bold">Previsto</p>
                 </div>
               </Card>
