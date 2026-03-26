@@ -1,0 +1,141 @@
+{
+  "entities": {
+    "Client": {
+      "title": "Client",
+      "description": "A registered client in the barbershop",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "telefone": { "type": "string" },
+        "dataNascimento": { "type": "string", "format": "date" },
+        "totalVisitas": { "type": "number" },
+        "tempoMedio": { "type": "number" },
+        "dataCadastro": { "type": "number" },
+        "ativo": { "type": "boolean" }
+      },
+      "required": ["id", "nome", "telefone"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "A service offered by the barbershop",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "tempoBase": { "type": "number" },
+        "preco": { "type": "number" },
+        "ativo": { "type": "boolean" }
+      },
+      "required": ["id", "nome", "tempoBase", "preco"]
+    },
+    "QueueItem": {
+      "title": "QueueItem",
+      "description": "An entry in the daily queue",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "posicao": { "type": "number" },
+        "clienteId": { "type": "string" },
+        "clienteNome": { "type": "string" },
+        "servicos": { "type": "string" },
+        "servicosIds": { "type": "array", "items": { "type": "string" } },
+        "tempoEstimado": { "type": "number" },
+        "horaPrevista": { "type": "string" },
+        "status": { "type": "string", "enum": ["AGUARDANDO", "EM_ATENDIMENTO", "CONCLUIDO", "CANCELADO", "AUSENTE"] },
+        "horaEntrada": { "type": "number" },
+        "horaChamada": { "type": "number" },
+        "horaFim": { "type": "number" },
+        "data": { "type": "string" },
+        "telefone": { "type": "string" },
+        "manual": { "type": "boolean" }
+      },
+      "required": ["id", "posicao", "clienteId", "status", "data"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "A completed attendance record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clienteId": { "type": "string" },
+        "clienteNome": { "type": "string" },
+        "servicos": { "type": "string" },
+        "data": { "type": "string" },
+        "horaInicio": { "type": "number" },
+        "horaFim": { "type": "number" },
+        "duracaoReal": { "type": "number" },
+        "duracaoEstimada": { "type": "number" },
+        "barbeiro": { "type": "string" },
+        "manual": { "type": "boolean" }
+      },
+      "required": ["id", "clienteId", "data", "horaInicio", "horaFim"]
+    },
+    "Config": {
+      "title": "Config",
+      "description": "System configuration",
+      "type": "object",
+      "properties": {
+        "BUFFER_MINUTES": { "type": "number" },
+        "EWMA_ALPHA": { "type": "number" },
+        "NEW_CLIENT_MULTIPLIER": { "type": "number" },
+        "MAX_DAILY_CLIENTS": { "type": "number" },
+        "OPENING_TIME": { "type": "string" },
+        "CLOSING_TIME": { "type": "string" },
+        "BARBER_EMAIL": { "type": "string" },
+        "BARBER_NAME": { "type": "string" },
+        "SHOP_NAME": { "type": "string" },
+        "AUTO_REFRESH_SECONDS": { "type": "number" },
+        "TIMEZONE": { "type": "string" },
+        "AUTO_OPEN_CLOSE": { "type": "boolean" },
+        "WEEKLY_SCHEDULE": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "day": { "type": "number" },
+              "enabled": { "type": "boolean" },
+              "openTime": { "type": "string" },
+              "closeTime": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "State": {
+      "title": "State",
+      "description": "Transient application state",
+      "type": "object",
+      "properties": {
+        "agendaAberta": { "type": "boolean" },
+        "dataAbertura": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Clients collection"
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Services collection"
+    },
+    "/queue/{queueId}": {
+      "schema": "QueueItem",
+      "description": "Daily queue collection"
+    },
+    "/history/{attendanceId}": {
+      "schema": "Attendance",
+      "description": "Attendance history collection"
+    },
+    "/config/settings": {
+      "schema": "Config",
+      "description": "Global settings"
+    },
+    "/config/state": {
+      "schema": "State",
+      "description": "Global state"
+    }
+  }
+}

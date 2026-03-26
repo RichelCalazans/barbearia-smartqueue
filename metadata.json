@@ -1,0 +1,5 @@
+{
+  "name": "Barbearia SmartQueue",
+  "description": "Sistema de fila inteligente para barbearias com previsão de tempo baseada em IA (EWMA) e design premium iOS.",
+  "requestFramePermissions": []
+}

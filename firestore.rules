@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "richelcalazans6@gmail.com" ||
+         request.auth.token.email == "teste@teste.com");
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidClient(data) {
+      return data.nome is string && data.nome.size() > 0 && data.nome.size() <= 100 &&
+             data.telefone is string && data.telefone.size() >= 10 && data.telefone.size() <= 11;
+    }
+
+    function isValidQueueItem(data) {
+      return data.clienteNome is string && data.clienteNome.size() > 0 &&
+             data.status in ['AGUARDANDO', 'EM_ATENDIMENTO', 'CONCLUIDO', 'CANCELADO', 'AUSENTE'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    match /clients/{clientId} {
+      allow get, list: if true;
+      allow create: if isValidClient(request.resource.data) &&
+        hasRequiredFields(['nome', 'telefone', 'totalVisitas', 'tempoMedio', 'dataCadastro', 'ativo']) &&
+        hasOnlyAllowedFields(['nome', 'telefone', 'dataNascimento', 'totalVisitas', 'tempoMedio', 'dataCadastro', 'ativo']) &&
+        request.resource.data.totalVisitas == 0 &&
+        request.resource.data.tempoMedio == 0 &&
+        request.resource.data.ativo == true;
+      allow update: if isAuthenticated() && isValidClient(request.resource.data);
+    }
+
+    match /services/{serviceId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /queue/{queueId} {
+      allow get, list: if true;
+      allow create: if isValidQueueItem(request.resource.data) &&
+        hasRequiredFields(['posicao', 'clienteId', 'clienteNome', 'servicos', 'servicosIds',
+                           'tempoEstimado', 'horaPrevista', 'status', 'horaEntrada', 'data', 'telefone', 'manual']) &&
+        request.resource.data.status == 'AGUARDANDO';
+      allow update: if isAdmin() ||
+        (resource.data.status == 'AGUARDANDO' &&
+         request.resource.data.status == 'CANCELADO' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'horaFim']));
+      allow delete: if isAdmin();
+    }
+
+    match /history/{attendanceId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /config/{docId} {
+      allow get: if docId == 'state' || isAdmin();
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(unzip:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(mkdir -p /Users/richelcalazans/.claude/skills)",
+      "Bash(mv /Users/richelcalazans/.claude/plugins/saas-architect/saas-architect/* /Users/richelcalazans/.claude/plugins/saas-architect/saas-architect/../ -v)",
+      "Bash(mkdir -p /Users/richelcalazans/.claude/skills/saas-architect)",
+      "Bash(cp -r /Users/richelcalazans/.claude/plugins/saas-architect/saas-architect/. /Users/richelcalazans/.claude/skills/saas-architect/)",
+      "Bash(rm -rf /Users/richelcalazans/.claude/plugins/saas-architect)",
+      "Bash(gh pr:*)",
+      "Bash(zip -r /Users/richelcalazans/barbearia-smartqueue/firebase-spa.skill firebase-spa/)",
+      "Bash(grep -E '\\\\.\\(ts|js\\)$')",
+      "Bash(wc -l /Users/richelcalazans/barbearia-smartqueue/src/App.tsx /Users/richelcalazans/barbearia-smartqueue/src/pages/*.tsx /Users/richelcalazans/barbearia-smartqueue/src/services/*.ts)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:5173)",
+      "WebSearch",
+      "Bash(grep -r \"font-\\\\|text-\\\\[\" /Users/richelcalazans/barbearia-smartqueue/src/components/*.tsx)",
+      "Bash(grep -r \"px-\\\\|py-\\\\|p-\\\\|gap-\\\\|space-\" /Users/richelcalazans/barbearia-smartqueue/src/components/*.tsx)",
+      "Bash(grep -r \"icon\\\\|Icon\\\\|lucide\" /Users/richelcalazans/barbearia-smartqueue/src/pages/*.tsx)",
+      "Bash(grep -A 5 \"from ''lucide-react''\" /Users/richelcalazans/barbearia-smartqueue/src/pages/ClientView.tsx)"
+    ]
+  }
+}
