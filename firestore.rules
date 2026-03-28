@@ -83,7 +83,8 @@ service cloud.firestore {
     }
 
     match /config/{docId} {
-      allow get, write: if isAuthenticated();
+      allow get: if true;  // Clientes precisam ler status da agenda
+      allow write, delete: if isAuthenticated();
       allow list: if isAdmin();
     }
 
