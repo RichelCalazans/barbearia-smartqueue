@@ -1,6 +1,6 @@
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBlbQ9MLaSGK3014_obV3n02dkGoOXOfXE",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: "smartqueue-aeb94.firebaseapp.com",
   projectId: "smartqueue-aeb94",
   storageBucket: "smartqueue-aeb94.firebasestorage.app",

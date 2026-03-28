@@ -8,7 +8,7 @@
 
 @layer base {
   body {
-    @apply bg-[#0A0A0A] text-[#F1F5F9] font-sans antialiased;
+    @apply bg-[#0A0A0A] text-[#F1F5F9] font-sans antialiased leading-relaxed;
   }
 }
 

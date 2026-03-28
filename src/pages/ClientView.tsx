@@ -52,9 +52,9 @@ export function ClientView() {
       configLoaded = true;
       
       // Load available dates when config changes
-      // Always load dates, even if WEEKLY_SCHEDULE is not configured
+      // Only show dates within the next 7 days (weekly schedule limit)
       setCheckingDates(true);
-      const dates = getAvailableDates(c, 21); // Next 21 days
+      const dates = getAvailableDates(c, 7); // Next 7 days max
 
       // Check availability for each enabled date
       Promise.all(

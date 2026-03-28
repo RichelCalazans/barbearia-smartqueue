@@ -44,6 +44,9 @@ export function Modal({
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
           />
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -53,7 +56,7 @@ export function Modal({
             )}
           >
             <div className="flex items-center justify-between border-b border-[#1E1E1E] p-6">
-              <h3 className="text-xl font-semibold text-[#F1F5F9]">{title}</h3>
+              <h3 id="modal-title" className="text-xl font-semibold text-[#F1F5F9]">{title}</h3>
               <Button variant="ghost" size="icon" onClick={onClose}>
                 <X className="h-5 w-5" />
               </Button>

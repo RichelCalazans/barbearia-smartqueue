@@ -48,7 +48,9 @@ export function formatDateDisplay(dateString: string): string {
     return 'Amanhã';
   }
   
-  return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' });
+  const weekday = date.toLocaleDateString('pt-BR', { weekday: 'long' });
+  const dayMonth = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+  return `${weekday}, ${dayMonth}`;
 }
 
 /**

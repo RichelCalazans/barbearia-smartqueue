@@ -48,24 +48,24 @@ service cloud.firestore {
     // Rules
     // ===============================================================
     match /clients/{clientId} {
-      allow get, list: if true;
+      allow get, list: if isAdmin() || isAuthenticated();
       allow create: if isValidClient(request.resource.data) &&
         hasRequiredFields(['nome', 'telefone', 'totalVisitas', 'tempoMedio', 'dataCadastro', 'ativo']) &&
         hasOnlyAllowedFields(['nome', 'telefone', 'dataNascimento', 'totalVisitas', 'tempoMedio', 'dataCadastro', 'ativo']) &&
         request.resource.data.totalVisitas == 0 &&
         request.resource.data.tempoMedio == 0 &&
         request.resource.data.ativo == true;
-      allow update: if isAuthenticated() && isValidClient(request.resource.data);
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 
     match /services/{serviceId} {
-      allow get, list: if true;
+      allow get, list: if isAuthenticated();
       allow write: if isAdmin();
     }
 
     match /queue/{queueId} {
-      allow get, list: if true;
+      allow get, list: if isAuthenticated();
       allow create: if isValidQueueItem(request.resource.data) &&
         hasRequiredFields(['posicao', 'clienteId', 'clienteNome', 'servicos', 'servicosIds',
                            'tempoEstimado', 'horaPrevista', 'status', 'horaEntrada', 'data', 'telefone', 'manual']) &&
@@ -83,8 +83,8 @@ service cloud.firestore {
     }
 
     match /config/{docId} {
-      allow get: if true;  // Clientes precisam ler status da agenda
-      allow write, delete: if isAuthenticated();
+      allow get: if isAuthenticated();  // Clientes precisam ler status da agenda
+      allow write, delete: if isAdmin();
       allow list: if isAdmin();
     }
 

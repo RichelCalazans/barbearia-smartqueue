@@ -34,7 +34,7 @@ export function Timer({ startTime, estimatedMinutes, className }: TimerProps) {
 
   return (
     <div className={cn('flex flex-col items-center justify-center space-y-6', className)}>
-      <div className="relative h-48 w-48">
+      <div className="relative h-32 w-32 md:h-48 md:w-48">
         {/* Background Circle */}
         <svg className="h-full w-full -rotate-90 transform">
           <circle
@@ -64,19 +64,19 @@ export function Timer({ startTime, estimatedMinutes, className }: TimerProps) {
         {/* Time Display */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className={cn(
-            "text-4xl font-bold tracking-tighter",
+            "text-2xl md:text-4xl font-bold tracking-tighter",
             isOvertime ? "text-[#EF4444] animate-pulse" : "text-[#F1F5F9]"
           )}>
             {formatTime(elapsed)}
           </span>
-          <span className="text-xs font-medium text-[#64748B] uppercase tracking-widest mt-1">
+          <span className="text-xs font-medium text-[#94A3B8] uppercase tracking-widest mt-1">
             {isOvertime ? 'Atrasado' : 'Em curso'}
           </span>
         </div>
       </div>
 
       <div className="text-center">
-        <p className="text-sm font-medium text-[#64748B]">
+        <p className="text-sm font-medium text-[#94A3B8]">
           Estimativa: <span className="text-[#F1F5F9]">{estimatedMinutes} min</span>
         </p>
       </div>
