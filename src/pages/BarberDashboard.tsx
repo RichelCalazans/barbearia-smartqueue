@@ -851,10 +851,17 @@ export function BarberDashboard() {
               <p className="text-xs font-bold uppercase tracking-widest text-[#64748B] ml-1">Agenda Semanal</p>
               {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((dayName, index) => {
                 const schedule = tempConfig.WEEKLY_SCHEDULE?.find(s => s.day === index) || { day: index, enabled: false, openTime: '09:00', closeTime: '19:00' };
+                const today = new Date();
+                const targetDate = new Date(today);
+                targetDate.setDate(today.getDate() + ((index - today.getDay() + 7) % 7 || 7));
+                const dateStr = targetDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
                 return (
                   <div key={index} className="p-4 rounded-xl bg-[#111111] border border-[#1E1E1E] space-y-4">
                     <div className="flex items-center justify-between">
-                      <p className="font-bold text-[#F1F5F9]">{dayName}</p>
+                      <div>
+                        <p className="font-bold text-[#F1F5F9]">{dayName}</p>
+                        <p className="text-xs text-[#64748B]">{dateStr}</p>
+                      </div>
                       <button 
                         onClick={() => {
                           const newSchedule = [...(tempConfig.WEEKLY_SCHEDULE || [])];
