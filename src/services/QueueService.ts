@@ -144,9 +144,9 @@ export class QueueService {
       const state = stateDoc.exists() ? stateDoc.data() : { agendaPausada: false, tempoRetomada: null };
 
       const batch = writeBatch(db);
-      let lastTime = config.OPENING_TIME;
       const now = new Date();
       const currentHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      let lastTime = currentHHMM > config.OPENING_TIME ? currentHHMM : config.OPENING_TIME;
 
       let pauseMinutesRemaining = 0;
       if (state.agendaPausada && state.tempoRetomada) {
