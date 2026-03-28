@@ -31,7 +31,11 @@
       "Bash(git commit -m \"feat: add pause/resume agenda functionality:*)",
       "Bash(git commit -m \"feat: add close agenda options when queue has clients:*)",
       "Bash(git push:*)",
-      "Bash(git commit -m \"feat: add pause duration selection for agenda:*)"
+      "Bash(git commit -m \"feat: add pause duration selection for agenda:*)",
+      "Bash(ls -la /Users/richelcalazans/barbearia-smartqueue/.env*)",
+      "Bash(git commit -m \"fix: allow public read access to config for client view:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git commit -m \"fix: show queue status view after client joins queue:*)"
     ]
   }
 }

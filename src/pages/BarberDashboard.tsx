@@ -73,6 +73,9 @@ export function BarberDashboard() {
   const [editingService, setEditingService] = useState<any | null>(null);
   const [newService, setNewService] = useState({ nome: '', tempoBase: 30, preco: 0 });
   const [serviceError, setServiceError] = useState<string | null>(null);
+  const [skipPauseConfirm, setSkipPauseConfirm] = useState<boolean>(() => {
+    return localStorage.getItem('sq_skip_pause_confirm') === 'true';
+  });
 
   useEffect(() => {
     if (isAdmin && config && state) {
@@ -544,7 +547,11 @@ export function BarberDashboard() {
                       variant="outline"
                       className="h-12 px-6 font-bold"
                       onClick={() => {
-                        setModalType(state.agendaPausada ? 'RESUME_AGENDA' : 'PAUSE_AGENDA');
+                        if (!state.agendaPausada && skipPauseConfirm) {
+                          setModalType('PAUSE_TIME');
+                        } else {
+                          setModalType(state.agendaPausada ? 'RESUME_AGENDA' : 'PAUSE_AGENDA');
+                        }
                         setIsModalOpen(true);
                       }}
                     >
@@ -998,12 +1005,29 @@ export function BarberDashboard() {
               ))}
             </div>
           </div>
+        ) : modalType === 'PAUSE_AGENDA' ? (
+          <div className="space-y-4">
+            <p className="text-[#64748B] leading-relaxed">
+              Deseja pausar a agenda? Nenhum novo cliente poderá entrar, mas os que já estão continuarão sendo atendidos.
+            </p>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={skipPauseConfirm}
+                onChange={(e) => {
+                  setSkipPauseConfirm(e.target.checked);
+                  localStorage.setItem('sq_skip_pause_confirm', e.target.checked ? 'true' : 'false');
+                }}
+                className="w-5 h-5 rounded border-[#1E1E1E] bg-[#1A1A1A] text-[#00D4A5] focus:ring-[#00D4A5]/50"
+              />
+              <span className="text-sm text-[#64748B]">Não mostrar novamente</span>
+            </label>
+          </div>
         ) : (
           <p className="text-[#64748B] leading-relaxed">
             {modalType === 'FINALIZE' ? `Deseja confirmar a finalização do atendimento de ${inService?.clienteNome}? O histórico será salvo e a média de tempo atualizada.` :
              modalType === 'ABSENT' ? `Deseja marcar ${inService?.clienteNome} como ausente? O cliente será removido da fila e o próximo será chamado.` :
              modalType === 'OPEN_AGENDA' ? 'Deseja abrir a agenda para hoje? Clientes poderão entrar na fila através do link público.' :
-             modalType === 'PAUSE_AGENDA' ? 'Deseja pausar a agenda? Nenhum novo cliente poderá entrar, mas os que já estão continuarão sendo atendidos.' :
              modalType === 'RESUME_AGENDA' ? 'Deseja retomar a agenda? Clientes poderão entrar na fila novamente.' :
              modalType === 'CLOSE_AGENDA_CHOICE' ? `Você tem ${waiting.length} cliente${waiting.length !== 1 ? 's' : ''} na fila. O que deseja fazer?\n\n• Manter Fila: O dia encerra, mas clientes continuarão na fila para amanhã.\n• Limpar Fila: O dia encerra e todos os clientes em espera serão cancelados.` :
              modalType === 'CLOSE_AGENDA_CLEAR' ? `Deseja encerrar o dia E limpar a fila? Os ${waiting.length} cliente(s) em espera serão cancelados.` :
