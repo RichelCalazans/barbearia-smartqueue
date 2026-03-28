@@ -13,6 +13,7 @@ import {
   Timestamp,
   serverTimestamp
 } from 'firebase/firestore';
+
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { QueueItem, QueueStatus, Client, Service, AppConfig } from '../types';
 import { TimePredictorService } from './TimePredictorService';
@@ -91,6 +92,16 @@ export class QueueService {
       handleFirestoreError(error, OperationType.CREATE, path);
       return '';
     }
+  }
+
+  /**
+   * Subscribes to real-time updates of a single ticket.
+   */
+  static onTicketChange(id: string, callback: (ticket: QueueItem | null) => void): () => void {
+    const docRef = doc(db, this.COLLECTION, id);
+    return onSnapshot(docRef, (snap) => {
+      callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as QueueItem) : null);
+    });
   }
 
   /**

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Scissors, User, Phone, CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { User, CheckCircle2, XCircle, Clock, AlertCircle, Scissors } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -10,8 +10,8 @@ import { ClientService } from '../services/ClientService';
 import { ServiceService } from '../services/ServiceService';
 import { QueueService } from '../services/QueueService';
 import { ConfigService } from '../services/ConfigService';
+import { useQueue } from '../hooks/useQueue';
 import { Service, QueueItem, AppConfig, AppState } from '../types';
-import { cn } from '../utils';
 
 export function ClientView() {
   const [loading, setLoading] = useState(true);
@@ -24,8 +24,12 @@ export function ClientView() {
   const [telefone, setTelefone] = useState('');
   const [dataNascimento, setDataNascimento] = useState('');
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [isNewClient, setIsNewClient] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ticketId, setTicketId] = useState<string | null>(() => localStorage.getItem('sq_ticket_id'));
+  const [activeTicket, setActiveTicket] = useState<QueueItem | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+
+  const { queue } = useQueue();
 
   useEffect(() => {
     let configLoaded = false;
@@ -48,10 +52,9 @@ export function ClientView() {
       stateLoaded = true;
       checkLoaded();
     });
-    
+
     ServiceService.listActive().then(setServices);
-    
-    // Fallback timeout in case documents don't exist
+
     const timeout = setTimeout(() => {
       setLoading(false);
     }, 3000);
@@ -62,6 +65,24 @@ export function ClientView() {
       clearTimeout(timeout);
     };
   }, []);
+
+  // Reactive listener: subscribes whenever ticketId changes
+  useEffect(() => {
+    if (!ticketId) {
+      setActiveTicket(null);
+      return;
+    }
+    const unsub = QueueService.onTicketChange(ticketId, (ticket) => {
+      if (ticket && (ticket.status === 'AGUARDANDO' || ticket.status === 'EM_ATENDIMENTO')) {
+        setActiveTicket(ticket);
+      } else {
+        localStorage.removeItem('sq_ticket_id');
+        setTicketId(null);
+        setActiveTicket(null);
+      }
+    });
+    return unsub;
+  }, [ticketId]);
 
   const handleCheckClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,14 +95,11 @@ export function ClientView() {
       if (client) {
         setNome(client.nome);
         setDataNascimento(client.dataNascimento || '');
-        setIsNewClient(false);
-        setStep(4); // Go to confirmation
+        setStep(4);
       } else {
-        setIsNewClient(true);
-        setStep(3); // Go to registration
+        setStep(3);
       }
     } catch (err: any) {
-      console.error('Error checking client:', err);
       let message = 'Erro ao verificar cadastro';
       try {
         const parsed = JSON.parse(err.message);
@@ -107,12 +125,10 @@ export function ClientView() {
     try {
       const { client } = await ClientService.findOrCreate(nome, telefone, dataNascimento);
       const chosenServices = services.filter(s => selectedServices.includes(s.id));
-      const ticketId = await QueueService.addToQueue(client, chosenServices, config);
-      
-      localStorage.setItem('sq_ticket_id', ticketId);
-      window.location.reload();
+      const newTicketId = await QueueService.addToQueue(client, chosenServices, config);
+      localStorage.setItem('sq_ticket_id', newTicketId);
+      setTicketId(newTicketId);
     } catch (err: any) {
-      console.error('Error joining queue:', err);
       let message = 'Erro ao entrar na fila';
       try {
         const parsed = JSON.parse(err.message);
@@ -126,8 +142,126 @@ export function ClientView() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center"><ScissorsLoading /></div>;
+  const handleCancel = async () => {
+    if (!activeTicket) return;
+    setCancelling(true);
+    try {
+      await QueueService.updateStatus(activeTicket.id, 'CANCELADO');
+      localStorage.removeItem('sq_ticket_id');
+      setTicketId(null);
+    } catch (err) {
+      setError('Erro ao cancelar. Tente novamente.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+        <ScissorsLoading />
+      </div>
+    );
+  }
+
+  // === ACTIVE TICKET VIEW ===
+  if (activeTicket) {
+    const position = queue.findIndex(item => item.id === activeTicket.id) + 1;
+    const isInService = activeTicket.status === 'EM_ATENDIMENTO';
+
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] p-6 pb-24">
+        <header className="mb-10 space-y-1">
+          <h1 className="text-sm font-bold uppercase tracking-[0.2em] text-[#00D4A5]">
+            {config?.SHOP_NAME || 'SmartQueue'}
+          </h1>
+          <p className="text-2xl font-bold tracking-tight text-[#F1F5F9]">
+            {isInService ? 'É a sua vez!' : 'Você está na fila'}
+          </p>
+        </header>
+
+        <main className="max-w-md mx-auto space-y-4">
+          {error && (
+            <div className="p-4 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm flex items-center gap-3">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <Card className="space-y-6">
+            {/* Status badge */}
+            <div className={`flex items-center gap-3 p-4 rounded-xl ${
+              isInService
+                ? 'bg-[#00D4A5]/10 border border-[#00D4A5]/30'
+                : 'bg-[#111111] border border-[#1E1E1E]'
+            }`}>
+              {isInService ? (
+                <Scissors className="h-5 w-5 text-[#00D4A5] shrink-0" />
+              ) : (
+                <Clock className="h-5 w-5 text-[#64748B] shrink-0" />
+              )}
+              <div>
+                <p className="text-xs text-[#64748B] uppercase tracking-wider">Status</p>
+                <p className={`font-bold ${isInService ? 'text-[#00D4A5]' : 'text-[#F1F5F9]'}`}>
+                  {isInService ? 'Em atendimento agora' : 'Aguardando'}
+                </p>
+              </div>
+            </div>
+
+            {/* Position + time */}
+            {!isInService && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-4 rounded-xl bg-[#111111] border border-[#1E1E1E] text-center">
+                  <p className="text-xs text-[#64748B] uppercase tracking-wider mb-1">Posição</p>
+                  <p className="text-3xl font-bold text-[#F1F5F9]">{position > 0 ? position : '—'}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-[#111111] border border-[#1E1E1E] text-center">
+                  <p className="text-xs text-[#64748B] uppercase tracking-wider mb-1">Previsão</p>
+                  <p className="text-3xl font-bold text-[#F1F5F9]">{activeTicket.horaPrevista}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Client info */}
+            <div className="space-y-2">
+              <p className="text-xs text-[#64748B] uppercase tracking-wider">Cliente</p>
+              <p className="text-[#F1F5F9] font-medium">{activeTicket.clienteNome}</p>
+            </div>
+
+            {/* Services */}
+            <div className="space-y-2">
+              <p className="text-xs text-[#64748B] uppercase tracking-wider">Serviços</p>
+              <p className="text-[#F1F5F9]">{activeTicket.servicos}</p>
+            </div>
+
+            {/* Estimated time */}
+            <div className="space-y-2">
+              <p className="text-xs text-[#64748B] uppercase tracking-wider">Tempo estimado</p>
+              <p className="text-[#F1F5F9]">{activeTicket.tempoEstimado} min</p>
+            </div>
+
+            {/* Cancel button */}
+            {!isInService && (
+              <Button
+                variant="ghost"
+                className="w-full text-[#EF4444] hover:text-[#EF4444] border border-[#EF4444]/20 hover:bg-[#EF4444]/10"
+                onClick={handleCancel}
+                loading={cancelling}
+              >
+                Cancelar minha vez
+              </Button>
+            )}
+          </Card>
+
+          <p className="text-center text-xs text-[#64748B] leading-relaxed">
+            Fique por perto. Atualizamos em tempo real.
+          </p>
+        </main>
+      </div>
+    );
+  }
+
+  // === AGENDA CLOSED ===
   if (!state?.agendaAberta) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] p-6 flex flex-col items-center justify-center text-center space-y-6">
@@ -147,6 +281,7 @@ export function ClientView() {
     );
   }
 
+  // === BOOKING FORM ===
   return (
     <div className="min-h-screen bg-[#0A0A0A] p-6 pb-24">
       <header className="mb-10 space-y-1">
@@ -313,9 +448,9 @@ export function ClientView() {
                 </div>
                 <div className="flex gap-3">
                   <Button variant="ghost" onClick={() => setStep(2)} className="flex-1">Voltar</Button>
-                  <Button 
-                    onClick={() => handleJoinQueue()} 
-                    className="flex-[2] h-14 font-bold" 
+                  <Button
+                    onClick={() => handleJoinQueue()}
+                    className="flex-[2] h-14 font-bold"
                     loading={submitting}
                   >
                     Confirmar e Entrar
