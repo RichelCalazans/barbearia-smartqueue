@@ -140,21 +140,36 @@ export class QueueService {
 
       if (queue.length === 0) return;
 
+      const stateDoc = await getDoc(doc(db, 'config', 'state'));
+      const state = stateDoc.exists() ? stateDoc.data() : { agendaPausada: false, tempoRetomada: null };
+
       const batch = writeBatch(db);
       let lastTime = config.OPENING_TIME;
       const now = new Date();
       const currentHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+      let pauseMinutesRemaining = 0;
+      if (state.agendaPausada && state.tempoRetomada) {
+        pauseMinutesRemaining = Math.max(0, Math.ceil((state.tempoRetomada - Date.now()) / 60000));
+      }
 
       for (let i = 0; i < queue.length; i++) {
         const item = queue[i];
         if (item.status === 'EM_ATENDIMENTO') {
           const elapsed = (Date.now() - (item.horaChamada || Date.now())) / 60000;
           const remaining = Math.max(0, item.tempoEstimado - elapsed);
-          lastTime = TimePredictorService.addMinutes(currentHHMM, remaining + config.BUFFER_MINUTES);
+          let baseTime = TimePredictorService.addMinutes(currentHHMM, remaining + config.BUFFER_MINUTES);
+          if (pauseMinutesRemaining > 0) {
+            baseTime = TimePredictorService.addMinutes(baseTime, pauseMinutesRemaining);
+          }
+          lastTime = baseTime;
         } else {
           let horaPrevista: string;
           if (i === 0 && !queue.some(it => it.status === 'EM_ATENDIMENTO')) {
             horaPrevista = currentHHMM > config.OPENING_TIME ? currentHHMM : config.OPENING_TIME;
+            if (pauseMinutesRemaining > 0) {
+              horaPrevista = TimePredictorService.addMinutes(horaPrevista, pauseMinutesRemaining);
+            }
           } else {
             horaPrevista = lastTime;
           }

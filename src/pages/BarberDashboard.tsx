@@ -128,6 +128,12 @@ export function BarberDashboard() {
     return () => clearInterval(interval);
   }, [state?.agendaPausada, state?.tempoRetomada]);
 
+  // Recalculate queue when pause state changes
+  useEffect(() => {
+    if (!config) return;
+    QueueService.recalculateQueue(config);
+  }, [config, state?.agendaPausada, state?.tempoRetomada]);
+
   const handleAction = async () => {
     if (!modalType || !config) return;
     setSubmitting(true);
@@ -552,7 +558,11 @@ export function BarberDashboard() {
                       variant="danger"
                       className="h-12 px-6 font-bold"
                       onClick={() => {
-                        setModalType('CLOSE_AGENDA');
+                        if (waiting.length > 0) {
+                          setModalType('CLOSE_AGENDA_CHOICE');
+                        } else {
+                          setModalType('CLOSE_AGENDA');
+                        }
                         setIsModalOpen(true);
                       }}
                     >
@@ -831,12 +841,10 @@ export function BarberDashboard() {
             <p className="text-[#64748B] text-sm mb-6">Selecione quanto tempo deseja pausar a agenda:</p>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { minutes: 15, label: '15 min' },
+                { minutes: 5, label: '5 min' },
+                { minutes: 10, label: '10 min' },
                 { minutes: 30, label: '30 min' },
-                { minutes: 45, label: '45 min' },
                 { minutes: 60, label: '1 hora' },
-                { minutes: 90, label: '1h 30m' },
-                { minutes: 120, label: '2 horas' },
               ].map(option => (
                 <button
                   key={option.minutes}

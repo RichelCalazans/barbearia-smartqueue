@@ -217,7 +217,13 @@ export function ClientView() {
                 </div>
                 <div className="p-4 rounded-xl bg-[#111111] border border-[#1E1E1E] text-center">
                   <p className="text-xs text-[#64748B] uppercase tracking-wider mb-1">Previsão</p>
-                  <p className="text-3xl font-bold text-[#F1F5F9]">{activeTicket.horaPrevista}</p>
+                  <p className="text-3xl font-bold text-[#F1F5F9]">
+                    {typeof activeTicket.horaPrevista === 'string' && activeTicket.horaPrevista.match(/^\d{2}:\d{2}$/)
+                      ? activeTicket.horaPrevista
+                      : typeof activeTicket.horaPrevista === 'string'
+                      ? activeTicket.horaPrevista.substring(0, 5)
+                      : '--:--'}
+                  </p>
                 </div>
               </div>
             )}
