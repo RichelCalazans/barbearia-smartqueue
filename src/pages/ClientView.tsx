@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, CheckCircle2, XCircle, Clock, AlertCircle, Scissors } from 'lucide-react';
+import { User, CheckCircle2, XCircle, Clock, AlertCircle, Scissors, Calendar } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -12,6 +12,7 @@ import { QueueService } from '../services/QueueService';
 import { ConfigService } from '../services/ConfigService';
 import { useQueue } from '../hooks/useQueue';
 import { Service, QueueItem, AppConfig, AppState } from '../types';
+import { isDateEnabled, getAvailableDates, getScheduleForDate, formatDateDisplay } from '../utils';
 
 export function ClientView() {
   const [loading, setLoading] = useState(true);
@@ -23,11 +24,16 @@ export function ClientView() {
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [dataNascimento, setDataNascimento] = useState('');
+  const [dataAgendamento, setDataAgendamento] = useState('');
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [error, setError] = useState<string | null>(null);
   const [ticketId, setTicketId] = useState<string | null>(() => localStorage.getItem('sq_ticket_id'));
   const [activeTicket, setActiveTicket] = useState<QueueItem | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [showDateSelector, setShowDateSelector] = useState(false);
+  const [availableDates, setAvailableDates] = useState<{ date: string; label: string; disabled: boolean; remainingSlots?: number }[]>([]);
+  const [checkingDates, setCheckingDates] = useState(false);
+  const [selectedDateInfo, setSelectedDateInfo] = useState<{ date: string; label: string; schedule?: any } | null>(null);
 
   const { queue } = useQueue();
 
@@ -44,6 +50,41 @@ export function ClientView() {
     const unsubConfig = ConfigService.onConfigChange((c) => {
       setConfig(c);
       configLoaded = true;
+      
+      // Load available dates when config changes
+      // Always load dates, even if WEEKLY_SCHEDULE is not configured
+      setCheckingDates(true);
+      const dates = getAvailableDates(c, 21); // Next 21 days
+
+      // Check availability for each enabled date
+      Promise.all(
+        dates.map(async (dateInfo) => {
+          if (!dateInfo.disabled) {
+            try {
+              const availability = await QueueService.checkDateAvailability(dateInfo.date, c);
+              return {
+                ...dateInfo,
+                disabled: !availability.available,
+                remainingSlots: availability.remainingSlots,
+              };
+            } catch (err) {
+              // If check fails, keep date enabled but without slot info
+              console.warn('Error checking date availability:', dateInfo.date, err);
+              return dateInfo;
+            }
+          }
+          return dateInfo;
+        })
+      ).then((updatedDates) => {
+        setAvailableDates(updatedDates);
+        setCheckingDates(false);
+      }).catch((err) => {
+        console.error('Error loading available dates:', err);
+        // Set dates without availability check as fallback
+        setAvailableDates(dates);
+        setCheckingDates(false);
+      });
+      
       checkLoaded();
     });
 
@@ -120,12 +161,20 @@ export function ClientView() {
       return;
     }
 
+    // Validate selected date
+    const targetDate = dataAgendamento || new Date().toISOString().split('T')[0];
+    const isDateValid = isDateEnabled(targetDate, config);
+    if (!isDateValid) {
+      setError('Data selecionada não está disponível.');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
       const { client } = await ClientService.findOrCreate(nome, telefone, dataNascimento);
       const chosenServices = services.filter(s => selectedServices.includes(s.id));
-      const newTicketId = await QueueService.addToQueue(client, chosenServices, config);
+      const newTicketId = await QueueService.addToQueue(client, chosenServices, config, targetDate);
       localStorage.setItem('sq_ticket_id', newTicketId);
       setTicketId(newTicketId);
     } catch (err: any) {
@@ -149,6 +198,14 @@ export function ClientView() {
       await QueueService.updateStatus(activeTicket.id, 'CANCELADO');
       localStorage.removeItem('sq_ticket_id');
       setTicketId(null);
+
+      // Resetar estados do formulario para tela inicial
+      setSelectedServices([]);
+      setDataAgendamento('');
+      setSelectedDateInfo(null);
+      setShowDateSelector(false);
+      setStep(1);
+      setError(null);
     } catch (err) {
       setError('Erro ao cancelar. Tente novamente.');
     } finally {
@@ -269,20 +326,97 @@ export function ClientView() {
 
   // === AGENDA CLOSED ===
   if (!state?.agendaAberta) {
+    // Check for future dates available
+    const today = new Date().toISOString().split('T')[0];
+    const futureDatesAvailable = availableDates.filter(d => !d.disabled && d.date !== today);
+    const hasFutureDates = futureDatesAvailable.length > 0;
+
+    // Handler to start booking flow for a future date
+    const handleSelectFutureDate = (dateInfo: { date: string; label: string; remainingSlots?: number }) => {
+      const schedule = getScheduleForDate(dateInfo.date, config!);
+      setDataAgendamento(dateInfo.date);
+      setSelectedDateInfo({
+        date: dateInfo.date,
+        label: dateInfo.label,
+        schedule,
+      });
+      // Force re-render with agendaAberta temporarily bypassed for future dates
+      // We'll render the booking form by updating state
+      setState(prev => prev ? { ...prev, agendaAberta: true } : prev);
+    };
+
     return (
-      <div className="min-h-screen bg-[#0A0A0A] p-6 flex flex-col items-center justify-center text-center space-y-6">
-        <div className="h-24 w-24 rounded-full bg-[#111111] border border-[#1E1E1E] flex items-center justify-center">
-          <AlertCircle className="h-10 w-10 text-[#64748B]" />
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tighter text-[#F1F5F9]">Agenda Fechada</h1>
-          <p className="text-[#64748B] max-w-xs mx-auto">
-            O barbeiro ainda não liberou a agenda para hoje. Tente novamente em instantes.
-          </p>
-        </div>
-        <Button variant="secondary" onClick={() => window.location.reload()}>
-          Atualizar Página
-        </Button>
+      <div className="min-h-screen bg-[#0A0A0A] p-6">
+        <header className="mb-10 space-y-1">
+          <h1 className="text-sm font-bold uppercase tracking-[0.2em] text-[#00D4A5]">
+            {config?.SHOP_NAME || 'SmartQueue'}
+          </h1>
+        </header>
+
+        <main className="max-w-md mx-auto space-y-6">
+          {/* Mensagem de agenda fechada hoje */}
+          <Card className="text-center space-y-4">
+            <div className="h-16 w-16 mx-auto rounded-full bg-[#111111] border border-[#1E1E1E] flex items-center justify-center">
+              <AlertCircle className="h-8 w-8 text-[#64748B]" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold text-[#F1F5F9]">Agenda Fechada Hoje</h2>
+              <p className="text-[#64748B] text-sm">
+                O barbeiro ainda nao liberou a agenda para hoje.
+              </p>
+            </div>
+            <Button variant="secondary" onClick={() => window.location.reload()}>
+              Atualizar
+            </Button>
+          </Card>
+
+          {/* Opcao de agendar para outros dias */}
+          {hasFutureDates && (
+            <Card className="space-y-4">
+              <div className="space-y-2">
+                <h3 className="text-lg font-bold text-[#F1F5F9]">Agendar para outro dia</h3>
+                <p className="text-[#64748B] text-sm">
+                  Voce pode reservar seu lugar para os proximos dias.
+                </p>
+              </div>
+
+              {checkingDates ? (
+                <div className="text-center text-[#64748B] text-sm py-4">
+                  Verificando disponibilidade...
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {futureDatesAvailable
+                    .slice(0, 5)
+                    .map((dateInfo) => {
+                      const schedule = getScheduleForDate(dateInfo.date, config!);
+                      return (
+                        <button
+                          key={dateInfo.date}
+                          onClick={() => handleSelectFutureDate(dateInfo)}
+                          className="w-full p-3 rounded-xl border bg-[#111111] border-[#1E1E1E] text-[#F1F5F9] hover:border-[#00D4A5]/30 hover:text-[#00D4A5] text-left transition-all flex items-center justify-between"
+                        >
+                          <div>
+                            <p className="font-medium capitalize">{dateInfo.label}</p>
+                            {schedule && (
+                              <p className="text-xs text-[#64748B] mt-0.5">
+                                {schedule.openTime} - {schedule.closeTime}
+                              </p>
+                            )}
+                          </div>
+                          {dateInfo.remainingSlots !== undefined && (
+                            <span className="text-xs text-[#64748B]">
+                              {dateInfo.remainingSlots} {dateInfo.remainingSlots === 1 ? 'vaga' : 'vagas'}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
+            </Card>
+          )}
+        </main>
       </div>
     );
   }
@@ -323,23 +457,115 @@ export function ClientView() {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      className="flex-1 p-4 rounded-xl bg-[#00D4A5]/10 border border-[#00D4A5] text-[#00D4A5] font-bold text-center"
+                      onClick={() => {
+                        setDataAgendamento('');
+                        setSelectedDateInfo(null);
+                        setShowDateSelector(false);
+                      }}
+                      className={`flex-1 p-4 rounded-xl font-bold text-center transition-all ${
+                        !dataAgendamento
+                          ? 'bg-[#00D4A5]/10 border border-[#00D4A5] text-[#00D4A5]'
+                          : 'bg-[#111111] border border-[#1E1E1E] text-[#64748B] hover:border-[#00D4A5]/30 hover:text-[#00D4A5]'
+                      }`}
                     >
                       Hoje
                     </button>
                     <button
                       type="button"
-                      disabled
-                      className="flex-1 p-4 rounded-xl bg-[#111111] border border-[#1E1E1E] text-[#64748B] text-center opacity-50 cursor-not-allowed"
+                      onClick={() => setShowDateSelector(!showDateSelector)}
+                      className={`flex-1 p-4 rounded-xl font-bold text-center transition-all ${
+                        dataAgendamento
+                          ? 'bg-[#00D4A5]/10 border border-[#00D4A5] text-[#00D4A5]'
+                          : 'bg-[#111111] border border-[#1E1E1E] text-[#64748B] hover:border-[#00D4A5]/30 hover:text-[#00D4A5]'
+                      }`}
                     >
                       Em breve...
                     </button>
                   </div>
+
+                  {showDateSelector && (
+                    <div className="pt-2 space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-[#64748B] mb-2">
+                        <Calendar className="h-4 w-4" />
+                        <span>Próximos dias disponíveis</span>
+                      </div>
+                      
+                      {checkingDates ? (
+                        <div className="text-center text-[#64748B] text-sm py-4">
+                          Verificando disponibilidade...
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+                          {availableDates.map((dateInfo) => {
+                            const isSelected = dataAgendamento === dateInfo.date;
+                            const schedule = getScheduleForDate(dateInfo.date, config!);
+                            
+                            return (
+                              <button
+                                key={dateInfo.date}
+                                type="button"
+                                disabled={dateInfo.disabled}
+                                onClick={() => {
+                                  setDataAgendamento(dateInfo.date);
+                                  setSelectedDateInfo({
+                                    date: dateInfo.date,
+                                    label: dateInfo.label,
+                                    schedule,
+                                  });
+                                  setShowDateSelector(false);
+                                }}
+                                className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between ${
+                                  dateInfo.disabled
+                                    ? 'bg-[#111111] border-[#1E1E1E] text-[#64748B] opacity-50 cursor-not-allowed'
+                                    : isSelected
+                                    ? 'bg-[#00D4A5]/10 border-[#00D4A5] text-[#00D4A5]'
+                                    : 'bg-[#111111] border-[#1E1E1E] text-[#F1F5F9] hover:border-[#00D4A5]/30 hover:text-[#00D4A5]'
+                                }`}
+                              >
+                                <div>
+                                  <p className="font-medium capitalize">{dateInfo.label}</p>
+                                  {schedule && !dateInfo.disabled && (
+                                    <p className="text-xs text-[#64748B] mt-0.5">
+                                      {schedule.openTime} - {schedule.closeTime}
+                                    </p>
+                                  )}
+                                </div>
+                                {dateInfo.remainingSlots !== undefined && !dateInfo.disabled && (
+                                  <span className="text-xs text-[#64748B]">
+                                    {dateInfo.remainingSlots} {dateInfo.remainingSlots === 1 ? 'vaga' : 'vagas'}
+                                  </span>
+                                )}
+                                {dateInfo.disabled && (
+                                  <span className="text-xs">Indisponível</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {selectedDateInfo && (
+                    <div className="p-3 rounded-xl bg-[#00D4A5]/10 border border-[#00D4A5]/30 flex items-center gap-3">
+                      <Calendar className="h-5 w-5 text-[#00D4A5]" />
+                      <div>
+                        <p className="text-sm font-medium text-[#00D4A5]">
+                          {selectedDateInfo.label}
+                        </p>
+                        {selectedDateInfo.schedule && (
+                          <p className="text-xs text-[#00D4A5]/80">
+                            {selectedDateInfo.schedule.openTime} - {selectedDateInfo.schedule.closeTime}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-4">
                   <label className="text-sm font-medium text-[#64748B] ml-1">
-                    O que vamos fazer hoje?
+                    O que vamos fazer {dataAgendamento ? 'neste dia' : 'hoje'}?
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {services.map((service) => (

@@ -35,7 +35,8 @@
       "Bash(ls -la /Users/richelcalazans/barbearia-smartqueue/.env*)",
       "Bash(git commit -m \"fix: allow public read access to config for client view:*)",
       "Bash(npx tsc:*)",
-      "Bash(git commit -m \"fix: show queue status view after client joins queue:*)"
+      "Bash(git commit -m \"fix: show queue status view after client joins queue:*)",
+      "Bash(git commit -m \"fix: corrigir funcionalidade de agendamento futuro \\(Em breve...\\):*)"
     ]
   }
 }

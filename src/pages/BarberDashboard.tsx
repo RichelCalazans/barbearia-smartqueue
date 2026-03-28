@@ -51,7 +51,10 @@ import { BottomNavigation, AdminTab } from '../components/BottomNavigation';
 
 export function BarberDashboard() {
   const { user, isAdmin, loading: authLoading, signOut } = useAuth();
-  const { queue, waiting, inService, loading: queueLoading } = useQueue();
+  const today = new Date().toISOString().split('T')[0];
+  const [selectedQueueDate, setSelectedQueueDate] = useState<string>(today);
+  const { queue, waiting, inService, loading: queueLoading } = useQueue(selectedQueueDate);
+  const isViewingFutureDate = selectedQueueDate > today;
   
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [state, setState] = useState<AppState | null>(null);
@@ -186,6 +189,25 @@ export function BarberDashboard() {
           break;
         case 'SETTINGS':
           if (tempConfig) {
+            // Validar horários do WEEKLY_SCHEDULE
+            if (tempConfig.WEEKLY_SCHEDULE) {
+              for (const schedule of tempConfig.WEEKLY_SCHEDULE) {
+                if (schedule.enabled) {
+                  // Validar que horário de abertura não é 00:00 (meia-noite)
+                  if (schedule.openTime === '00:00') {
+                    setError(`Horário de abertura inválido para ${['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][schedule.day]}. Use um horário válido (ex: 09:00).`);
+                    setSubmitting(false);
+                    return;
+                  }
+                  // Validar que horário de fechamento é depois da abertura
+                  if (schedule.openTime >= schedule.closeTime) {
+                    setError(`Horário de fechamento deve ser depois da abertura para ${['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][schedule.day]}.`);
+                    setSubmitting(false);
+                    return;
+                  }
+                }
+              }
+            }
             await ConfigService.updateConfig(tempConfig);
           }
           break;
@@ -443,20 +465,27 @@ export function BarberDashboard() {
                     <p className="text-[#00D4A5] font-medium">{inService.servicos}</p>
                   </div>
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                    <Button 
+                    <Button
                       className="h-12 px-8 font-bold"
                       onClick={() => { setModalType('FINALIZE'); setIsModalOpen(true); }}
+                      disabled={isViewingFutureDate}
+                      title={isViewingFutureDate ? 'Acao disponivel apenas para o dia atual' : ''}
                     >
                       <Check className="mr-2 h-5 w-5" /> Finalizar
                     </Button>
-                    <Button 
-                      variant="secondary" 
+                    <Button
+                      variant="secondary"
                       className="h-12 px-8 font-bold"
                       onClick={() => { setModalType('ABSENT'); setIsModalOpen(true); }}
+                      disabled={isViewingFutureDate}
+                      title={isViewingFutureDate ? 'Acao disponivel apenas para o dia atual' : ''}
                     >
                       <UserMinus className="mr-2 h-5 w-5" /> Ausente
                     </Button>
                   </div>
+                  {isViewingFutureDate && (
+                    <p className="text-xs text-[#F59E0B] mt-2">Acoes de gerenciamento disponiveis apenas para o dia atual</p>
+                  )}
                 </div>
               </div>
             </Card>
@@ -465,11 +494,16 @@ export function BarberDashboard() {
               <div className="h-12 w-12 rounded-full bg-[#1A1A1A] flex items-center justify-center">
                 <Scissors className="h-6 w-6 text-[#64748B]" />
               </div>
-              <p className="text-[#64748B] font-medium">Nenhum cliente em atendimento</p>
-              {waiting.length > 0 && (
+              <p className="text-[#64748B] font-medium">
+                {isViewingFutureDate ? 'Visualizando agendamentos futuros' : 'Nenhum cliente em atendimento'}
+              </p>
+              {waiting.length > 0 && !isViewingFutureDate && (
                 <Button onClick={handleCallNext} loading={submitting}>
-                  <Play className="mr-2 h-4 w-4" /> Chamar Próximo ({waiting[0].clienteNome})
+                  <Play className="mr-2 h-4 w-4" /> Chamar Proximo ({waiting[0].clienteNome})
                 </Button>
+              )}
+              {isViewingFutureDate && waiting.length > 0 && (
+                <p className="text-xs text-[#F59E0B]">Acoes disponiveis apenas para o dia atual</p>
               )}
             </Card>
           )}
@@ -477,8 +511,38 @@ export function BarberDashboard() {
 
         {/* Queue List */}
         <section className="space-y-4">
+          {/* Date Selector */}
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => setSelectedQueueDate(today)}
+              className={cn(
+                "px-4 py-2 rounded-lg text-sm font-bold transition-all",
+                selectedQueueDate === today
+                  ? "bg-[#00D4A5] text-[#0A0A0A]"
+                  : "bg-[#1A1A1A] text-[#64748B] hover:bg-[#252525]"
+              )}
+            >
+              Hoje
+            </button>
+            <input
+              type="date"
+              value={selectedQueueDate}
+              onChange={(e) => setSelectedQueueDate(e.target.value)}
+              min={today}
+              className="px-4 py-2 rounded-lg bg-[#1A1A1A] border border-[#333] text-[#F1F5F9] text-sm font-medium focus:outline-none focus:border-[#00D4A5] transition-all"
+            />
+            {isViewingFutureDate && (
+              <span className="text-xs text-[#F59E0B] font-medium flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                Visualizando agendamentos futuros
+              </span>
+            )}
+          </div>
+
           <div className="flex items-center justify-between ml-1">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Próximos na Fila</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-[#64748B]">
+              {isViewingFutureDate ? 'Agendamentos do Dia' : 'Próximos na Fila'}
+            </h2>
             <span className="text-xs font-bold text-[#00D4A5]">{waiting.length} clientes</span>
           </div>
           <div className="space-y-3">
@@ -507,8 +571,12 @@ export function BarberDashboard() {
             ))}
             {waiting.length === 0 && (
               <div className="py-12 text-center space-y-2">
-                <p className="text-[#64748B] font-medium">Fila vazia</p>
-                <p className="text-xs text-[#64748B]/50 uppercase tracking-widest">Aguardando novos clientes</p>
+                <p className="text-[#64748B] font-medium">
+                  {isViewingFutureDate ? 'Nenhum agendamento para esta data' : 'Fila vazia'}
+                </p>
+                <p className="text-xs text-[#64748B]/50 uppercase tracking-widest">
+                  {isViewingFutureDate ? 'Nenhum cliente agendou para este dia' : 'Aguardando novos clientes'}
+                </p>
               </div>
             )}
           </div>

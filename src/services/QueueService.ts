@@ -27,15 +27,18 @@ export class QueueService {
   static async addToQueue(
     client: Client,
     services: Service[],
-    config: AppConfig
+    config: AppConfig,
+    scheduledDate?: string // YYYY-MM-DD, defaults to today if not provided
   ): Promise<string> {
     const path = this.COLLECTION;
     try {
-      // 1. Get current queue to calculate position and time
-      const today = new Date().toISOString().split('T')[0];
+      // Use provided date or today
+      const targetDate = scheduledDate || new Date().toISOString().split('T')[0];
+
+      // 1. Get current queue for the target date to calculate position and time
       const q = query(
         collection(db, path),
-        where('data', '==', today),
+        where('data', '==', targetDate),
         where('status', 'in', ['AGUARDANDO', 'EM_ATENDIMENTO']),
         orderBy('posicao', 'asc')
       );
@@ -43,7 +46,7 @@ export class QueueService {
       const currentQueue = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as QueueItem));
 
       if (currentQueue.length >= config.MAX_DAILY_CLIENTS) {
-        throw new Error('Fila cheia para hoje.');
+        throw new Error('Fila cheia para este dia.');
       }
 
       // 2. Calculate position
@@ -62,11 +65,14 @@ export class QueueService {
           lastItem.tempoEstimado + config.BUFFER_MINUTES
         );
       } else {
-        // If first of the day, check if current time is after opening time
-        const now = new Date();
-        const currentHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-        if (currentHHMM > config.OPENING_TIME) {
-          predictedStartTime = currentHHMM;
+        // If first of the day, check if it's today and current time is after opening time
+        const today = new Date().toISOString().split('T')[0];
+        if (targetDate === today) {
+          const now = new Date();
+          const currentHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+          if (currentHHMM > config.OPENING_TIME) {
+            predictedStartTime = currentHHMM;
+          }
         }
       }
 
@@ -81,7 +87,7 @@ export class QueueService {
         horaPrevista: predictedStartTime,
         status: 'AGUARDANDO',
         horaEntrada: Date.now(),
-        data: today,
+        data: targetDate,
         telefone: client.telefone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) *****-$3'),
         manual: false,
       };
@@ -119,6 +125,36 @@ export class QueueService {
       await updateDoc(doc(db, this.COLLECTION, id), updates);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  }
+
+  /**
+   * Checks if a date has available slots in the queue.
+   */
+  static async checkDateAvailability(
+    dateString: string, // YYYY-MM-DD
+    config: AppConfig
+  ): Promise<{ available: boolean; totalSlots: number; remainingSlots: number }> {
+    const path = this.COLLECTION;
+    try {
+      const q = query(
+        collection(db, path),
+        where('data', '==', dateString),
+        where('status', 'in', ['AGUARDANDO', 'EM_ATENDIMENTO'])
+      );
+      const snapshot = await getDocs(q);
+      const count = snapshot.size;
+
+      return {
+        available: count < config.MAX_DAILY_CLIENTS,
+        totalSlots: config.MAX_DAILY_CLIENTS,
+        remainingSlots: Math.max(0, config.MAX_DAILY_CLIENTS - count),
+      };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, path);
+      // On error, default to available to avoid blocking users
+      // The actual validation will happen when they try to join the queue
+      return { available: true, totalSlots: config.MAX_DAILY_CLIENTS, remainingSlots: config.MAX_DAILY_CLIENTS };
     }
   }
 

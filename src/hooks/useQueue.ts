@@ -3,15 +3,15 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { db } from '../firebase';
 import { QueueItem } from '../types';
 
-export function useQueue() {
+export function useQueue(selectedDate?: string) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const dateToQuery = selectedDate || new Date().toISOString().split('T')[0];
     const q = query(
       collection(db, 'queue'),
-      where('data', '==', today),
+      where('data', '==', dateToQuery),
       where('status', 'in', ['AGUARDANDO', 'EM_ATENDIMENTO']),
       orderBy('posicao', 'asc')
     );
@@ -47,7 +47,7 @@ export function useQueue() {
     });
 
     return unsubscribe;
-  }, []);
+  }, [selectedDate]);
 
   const waiting = queue.filter(item => item.status === 'AGUARDANDO');
   const inService = queue.find(item => item.status === 'EM_ATENDIMENTO');
