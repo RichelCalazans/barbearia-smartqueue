@@ -10,7 +10,7 @@ import {
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import firebaseConfig from '../firebase.config';
-import { AppUser } from '../types';
+import { AppUser, UserRole, Permission, ROLE_PERMISSIONS } from '../types';
 
 export class UserService {
   private static COLLECTION = 'users';
@@ -19,7 +19,7 @@ export class UserService {
    * Creates a Firebase Auth user via REST API (does NOT switch the current auth session)
    * then saves user info to Firestore and sends a password-setup email.
    */
-  static async createUser(email: string, nome: string, isAdmin: boolean): Promise<void> {
+  static async createUser(email: string, nome: string, role: UserRole): Promise<void> {
     const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
 
     const res = await fetch(
@@ -41,10 +41,13 @@ export class UserService {
     const data = await res.json();
     const uid: string = data.localId;
 
+    const permissions = ROLE_PERMISSATIONS[role];
+
     await setDoc(doc(db, this.COLLECTION, uid), {
       email,
       nome,
-      isAdmin,
+      role,
+      permissions,
       ativo: true,
       createdAt: Date.now(),
     });
@@ -55,11 +58,25 @@ export class UserService {
 
   static async listUsers(): Promise<AppUser[]> {
     const snapshot = await getDocs(collection(db, this.COLLECTION));
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AppUser));
+    return snapshot.docs.map(d => {
+      const data = d.data();
+      // Migration: handle old users with isAdmin instead of role
+      if (!data.role) {
+        const isAdmin = data.isAdmin ?? false;
+        return {
+          id: d.id,
+          ...data,
+          role: isAdmin ? 'ADMIN' as UserRole : 'BARBEIRO' as UserRole,
+          permissions: ROLE_PERMISSIONS[isAdmin ? 'ADMIN' : 'BARBEIRO'],
+        } as AppUser;
+      }
+      return { id: d.id, ...data } as AppUser;
+    });
   }
 
-  static async updateRole(userId: string, isAdmin: boolean): Promise<void> {
-    await updateDoc(doc(db, this.COLLECTION, userId), { isAdmin });
+  static async updateRole(userId: string, role: UserRole): Promise<void> {
+    const permissions = ROLE_PERMISSATIONS[role];
+    await updateDoc(doc(db, this.COLLECTION, userId), { role, permissions });
   }
 
   static async findByEmail(email: string): Promise<AppUser | null> {
@@ -67,6 +84,17 @@ export class UserService {
     const snapshot = await getDocs(q);
     if (snapshot.empty) return null;
     const d = snapshot.docs[0];
-    return { id: d.id, ...d.data() } as AppUser;
+    const data = d.data();
+    // Migration: handle old users with isAdmin instead of role
+    if (!data.role) {
+      const isAdmin = data.isAdmin ?? false;
+      return {
+        id: d.id,
+        ...data,
+        role: isAdmin ? 'ADMIN' as UserRole : 'BARBEIRO' as UserRole,
+        permissions: ROLE_PERMISSIONS[isAdmin ? 'ADMIN' : 'BARBEIRO'],
+      } as AppUser;
+    }
+    return { id: d.id, ...data } as AppUser;
   }
 }

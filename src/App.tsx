@@ -55,9 +55,9 @@ export default function App() {
 
   return (
     <AppProvider>
-      <div className="min-h-screen bg-[#0A0A0A] text-[#F1F5F9] selection:bg-[#00D4A5]/30 selection:text-[#00D4A5]">
+      <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] selection:bg-[var(--color-primary)]/30 selection:text-[var(--color-primary)]">
         <Suspense fallback={
-          <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+          <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center">
             <ScissorsLoading />
           </div>
         }>

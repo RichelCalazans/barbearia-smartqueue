@@ -43,14 +43,14 @@ import { AnalyticsService } from '../services/AnalyticsService';
 import { UserService } from '../services/UserService';
 import { useQueue } from '../hooks/useQueue';
 import { useAuth } from '../hooks/useAuth';
-import { QueueItem, AppConfig, AppState, AppUser } from '../types';
+import { QueueItem, AppConfig, AppState, AppUser, UserRole } from '../types';
 import { cn } from '../utils';
 import { MetricsPage } from './MetricsPage';
 import { ClientsPage } from './ClientsPage';
 import { BottomNavigation, AdminTab } from '../components/BottomNavigation';
 
 export function BarberDashboard() {
-  const { user, isAdmin, loading: authLoading, signOut } = useAuth();
+  const { user, isAdmin, isSuperAdmin, hasPermission, appUser, loading: authLoading, signOut } = useAuth();
   const today = new Date().toISOString().split('T')[0];
   const [selectedQueueDate, setSelectedQueueDate] = useState<string>(today);
   const { queue, waiting, inService, loading: queueLoading } = useQueue(selectedQueueDate);
@@ -68,7 +68,7 @@ export function BarberDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [showAddUserForm, setShowAddUserForm] = useState(false);
-  const [newUser, setNewUser] = useState({ email: '', nome: '', isAdmin: false });
+  const [newUser, setNewUser] = useState({ email: '', nome: '', role: 'BARBEIRO' as UserRole });
   const [userError, setUserError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTab>('FILA');
   const [services, setServices] = useState<any[]>([]);
@@ -238,7 +238,7 @@ export function BarberDashboard() {
 
   const openManageUsers = async () => {
     setShowAddUserForm(false);
-    setNewUser({ email: '', nome: '', isAdmin: false });
+    setNewUser({ email: '', nome: '', role: 'BARBEIRO' });
     setUserError(null);
     setModalType('MANAGE_USERS');
     setIsModalOpen(true);
@@ -254,11 +254,11 @@ export function BarberDashboard() {
     setSubmitting(true);
     setUserError(null);
     try {
-      await UserService.createUser(newUser.email, newUser.nome, newUser.isAdmin);
+      await UserService.createUser(newUser.email, newUser.nome, newUser.role as UserRole);
       const list = await UserService.listUsers();
       setUsers(list);
       setShowAddUserForm(false);
-      setNewUser({ email: '', nome: '', isAdmin: false });
+      setNewUser({ email: '', nome: '', role: 'BARBEIRO' });
     } catch (err: any) {
       setUserError(err.message || 'Erro ao criar usuário.');
     } finally {
@@ -266,10 +266,14 @@ export function BarberDashboard() {
     }
   };
 
+  const ROLES: UserRole[] = ['RECEPCIONISTA', 'BARBEIRO', 'ADMIN', 'SUPER_ADMIN'];
+
   const handleToggleRole = async (u: AppUser) => {
+    const currentIndex = ROLES.indexOf(u.role);
+    const nextRole = ROLES[(currentIndex + 1) % ROLES.length];
     try {
-      await UserService.updateRole(u.id, !u.isAdmin);
-      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, isAdmin: !u.isAdmin } : x));
+      await UserService.updateRole(u.id, nextRole);
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: nextRole } : x));
     } catch {
       setUserError('Erro ao atualizar permissão.');
     }
@@ -755,14 +759,14 @@ export function BarberDashboard() {
                     onClick={() => handleToggleRole(u)}
                     className={cn(
                       'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors',
-                      u.isAdmin
+                      u.role === 'SUPER_ADMIN' || u.role === 'ADMIN'
                         ? 'bg-[#00D4A5]/10 text-[#00D4A5] hover:bg-[#EF4444]/10 hover:text-[#EF4444]'
                         : 'bg-[#334155]/20 text-[#64748B] hover:bg-[#00D4A5]/10 hover:text-[#00D4A5]'
                     )}
-                    title={u.isAdmin ? 'Remover admin' : 'Tornar admin'}
+                    title={`Mudar role (atual: ${u.role})`}
                   >
-                    {u.isAdmin ? <Shield className="h-3 w-3" /> : <ShieldOff className="h-3 w-3" />}
-                    {u.isAdmin ? 'Admin' : 'Usuário'}
+                    <Shield className="h-3 w-3" />
+                    {u.role === 'SUPER_ADMIN' ? 'Super' : u.role === 'ADMIN' ? 'Admin' : u.role === 'BARBEIRO' ? 'Barbeiro' : 'Recep'}
                   </button>
                 </div>
               ))}
@@ -786,23 +790,24 @@ export function BarberDashboard() {
                   onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))}
                   className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5] transition-all"
                 />
-                <div className="flex items-center justify-between p-3 rounded-xl bg-[#1A1A1A] border border-[#1E1E1E]">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-[#64748B]" />
-                    <span className="text-sm font-medium text-[#F1F5F9]">Admin</span>
+                <div className="space-y-2">
+                  <p className="text-xs text-[#64748B]">Função</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['RECEPCIONISTA', 'BARBEIRO', 'ADMIN', 'SUPER_ADMIN'] as UserRole[]).map(role => (
+                      <button
+                        key={role}
+                        onClick={() => setNewUser(p => ({ ...p, role }))}
+                        className={cn(
+                          'p-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors',
+                          newUser.role === role
+                            ? 'bg-[#00D4A5] text-black'
+                            : 'bg-[#1A1A1A] text-[#64748B] border border-[#1E1E1E]'
+                        )}
+                      >
+                        {role === 'SUPER_ADMIN' ? 'Super' : role === 'ADMIN' ? 'Admin' : role === 'BARBEIRO' ? 'Barbeiro' : 'Recep'}
+                      </button>
+                    ))}
                   </div>
-                  <button
-                    onClick={() => setNewUser(p => ({ ...p, isAdmin: !p.isAdmin }))}
-                    className={cn(
-                      'w-11 h-6 rounded-full transition-colors relative',
-                      newUser.isAdmin ? 'bg-[#00D4A5]' : 'bg-[#334155]'
-                    )}
-                  >
-                    <div className={cn(
-                      'absolute top-1 w-4 h-4 rounded-full bg-white transition-all',
-                      newUser.isAdmin ? 'left-6' : 'left-1'
-                    )} />
-                  </button>
                 </div>
                 <p className="text-xs text-[#64748B]">
                   O usuário receberá um email para criar sua senha.
@@ -828,6 +833,96 @@ export function BarberDashboard() {
           </div>
         ) : modalType === 'SETTINGS' && tempConfig ? (
           <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Aparência</p>
+            
+            {/* Logo URL */}
+            <div className="space-y-2">
+              <label className="text-xs text-[#64748B]">URL do Logo</label>
+              <input
+                type="url"
+                placeholder="https://exemplo.com/logo.png"
+                value={tempConfig.LOGO_URL || ''}
+                onChange={e => setTempConfig({ ...tempConfig, LOGO_URL: e.target.value })}
+                className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5]"
+              />
+              <p className="text-[10px] text-[#64748B]">Cole a URL de uma imagem (PNG, JPG)</p>
+            </div>
+
+            {/* Cores */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Principal</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={tempConfig.PRIMARY_COLOR || '#00D4A5'}
+                    onChange={e => setTempConfig({ ...tempConfig, PRIMARY_COLOR: e.target.value })}
+                    className="w-10 h-10 rounded-lg cursor-pointer border-0"
+                  />
+                  <input
+                    type="text"
+                    value={tempConfig.PRIMARY_COLOR || '#00D4A5'}
+                    onChange={e => setTempConfig({ ...tempConfig, PRIMARY_COLOR: e.target.value })}
+                    className="flex-1 bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-2 py-2 text-xs text-[#F1F5F9] font-mono uppercase"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Fundo</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={tempConfig.SECONDARY_COLOR || '#1A1A1A'}
+                    onChange={e => setTempConfig({ ...tempConfig, SECONDARY_COLOR: e.target.value })}
+                    className="w-10 h-10 rounded-lg cursor-pointer border-0"
+                  />
+                  <input
+                    type="text"
+                    value={tempConfig.SECONDARY_COLOR || '#1A1A1A'}
+                    onChange={e => setTempConfig({ ...tempConfig, SECONDARY_COLOR: e.target.value })}
+                    className="flex-1 bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-2 py-2 text-xs text-[#F1F5F9] font-mono uppercase"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Destaque</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={tempConfig.ACCENT_COLOR || '#0A0A0A'}
+                    onChange={e => setTempConfig({ ...tempConfig, ACCENT_COLOR: e.target.value })}
+                    className="w-10 h-10 rounded-lg cursor-pointer border-0"
+                  />
+                  <input
+                    type="text"
+                    value={tempConfig.ACCENT_COLOR || '#0A0A0A'}
+                    onChange={e => setTempConfig({ ...tempConfig, ACCENT_COLOR: e.target.value })}
+                    className="flex-1 bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-2 py-2 text-xs text-[#F1F5F9] font-mono uppercase"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dark Mode Toggle */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-[#1A1A1A] border border-[#1E1E1E]">
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-[#F1F5F9]">Tema Escuro</p>
+                <p className="text-xs text-[#64748B]">Usar fundo escuro</p>
+              </div>
+              <button 
+                onClick={() => setTempConfig({ ...tempConfig, DARK_MODE: !tempConfig.DARK_MODE })}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative",
+                  tempConfig.DARK_MODE ? "bg-[#00D4A5]" : "bg-[#334155]"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
+                  tempConfig.DARK_MODE ? "left-7" : "left-1"
+                )} />
+              </button>
+            </div>
+
             <div className="flex items-center justify-between p-4 rounded-xl bg-[#1A1A1A] border border-[#1E1E1E]">
               <div className="space-y-1">
                 <p className="text-sm font-bold text-[#F1F5F9]">Abertura Automática</p>

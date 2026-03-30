@@ -34,6 +34,11 @@ export class ConfigService {
       { day: 5, enabled: true, openTime: '09:00', closeTime: '19:00' },
       { day: 6, enabled: true, openTime: '09:00', closeTime: '14:00' },
     ],
+    LOGO_URL: '',
+    PRIMARY_COLOR: '#00D4A5',
+    SECONDARY_COLOR: '#1A1A1A',
+    ACCENT_COLOR: '#0A0A0A',
+    DARK_MODE: true,
   };
 
   /**
@@ -90,7 +95,7 @@ export class ConfigService {
       if (snapshot.exists()) {
         callback(snapshot.data() as AppState);
       } else {
-        callback({ agendaAberta: false, dataAbertura: null });
+        callback({ agendaAberta: false, dataAbertura: null, agendaPausada: false });
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, this.STATE_PATH);

@@ -72,6 +72,12 @@ export interface AppConfig {
   TIMEZONE: string;
   WEEKLY_SCHEDULE: DaySchedule[];
   AUTO_OPEN_CLOSE: boolean;
+  // Customização visual
+  LOGO_URL?: string;
+  PRIMARY_COLOR?: string;  // Cor principal (hex)
+  SECONDARY_COLOR?: string; // Cor secundária
+  ACCENT_COLOR?: string;    // Cor de destaque
+  DARK_MODE?: boolean;
 }
 
 export interface AppState {
@@ -81,11 +87,29 @@ export interface AppState {
   tempoRetomada?: number | null; // timestamp when to auto-resume
 }
 
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'BARBEIRO' | 'RECEPCIONISTA';
+
+export type Permission = 
+  | 'manage_queue' 
+  | 'manage_clients' 
+  | 'manage_services' 
+  | 'manage_users' 
+  | 'view_metrics' 
+  | 'manage_settings';
+
+export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  SUPER_ADMIN: ['manage_queue', 'manage_clients', 'manage_services', 'manage_users', 'view_metrics', 'manage_settings'],
+  ADMIN: ['manage_queue', 'manage_clients', 'manage_services', 'view_metrics', 'manage_settings'],
+  BARBEIRO: ['manage_queue', 'manage_clients', 'view_metrics'],
+  RECEPCIONISTA: ['manage_queue', 'manage_clients', 'view_metrics'],
+};
+
 export interface AppUser {
   id: string;
   email: string;
   nome: string;
-  isAdmin: boolean;
+  role: UserRole;
+  permissions: Permission[];
   ativo: boolean;
   createdAt: number;
 }

@@ -12,11 +12,14 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
+    function isSuperAdmin() {
       return isAuthenticated() &&
         (request.auth.token.email == "richelcalazans6@gmail.com" ||
-         request.auth.token.email == "teste@teste.com" ||
-         request.auth.uid == "x4dNFkgfUaM9cAr9n61JsU4oQ0v2");
+         request.auth.token.email == "teste@teste.com");
+    }
+
+    function isAdmin() {
+      return isSuperAdmin();
     }
 
     function hasRequiredFields(fields) {

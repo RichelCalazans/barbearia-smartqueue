@@ -11,10 +11,12 @@ import { ServiceService } from '../services/ServiceService';
 import { QueueService } from '../services/QueueService';
 import { ConfigService } from '../services/ConfigService';
 import { useQueue } from '../hooks/useQueue';
+import { useApp } from '../contexts/AppContext';
 import { Service, QueueItem, AppConfig, AppState } from '../types';
 import { isDateEnabled, getAvailableDates, getScheduleForDate, formatDateDisplay } from '../utils';
 
 export function ClientView() {
+  const { config: appConfig } = useApp();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -227,12 +229,16 @@ export function ClientView() {
     const isInService = activeTicket.status === 'EM_ATENDIMENTO';
 
     return (
-      <div className="min-h-screen bg-[#0A0A0A] p-6 pb-24">
+      <div className="min-h-screen bg-[var(--color-bg)] p-6 pb-24">
         <header className="mb-10 space-y-1">
-          <h1 className="text-sm font-bold uppercase tracking-[0.2em] text-[#00D4A5]">
-            {config?.SHOP_NAME || 'SmartQueue'}
-          </h1>
-          <p className="text-2xl font-bold tracking-tight text-[#F1F5F9]">
+          {appConfig?.LOGO_URL ? (
+            <img src={appConfig.LOGO_URL} alt="Logo" className="h-14 w-auto object-contain mb-3 opacity-60" />
+          ) : (
+            <h1 className="text-sm font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--color-primary)' }}>
+              {config?.SHOP_NAME || 'SmartQueue'}
+            </h1>
+          )}
+          <p className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>
             {isInService ? 'É a sua vez!' : 'Você está na fila'}
           </p>
         </header>
@@ -324,8 +330,17 @@ export function ClientView() {
     );
   }
 
+  // === STATE STILL LOADING ===
+  if (!state) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+        <ScissorsLoading />
+      </div>
+    );
+  }
+
   // === AGENDA CLOSED ===
-  if (!state?.agendaAberta) {
+  if (!state.agendaAberta) {
     // Check for future dates available
     const today = new Date().toISOString().split('T')[0];
     const futureDatesAvailable = availableDates.filter(d => !d.disabled && d.date !== today);
@@ -346,11 +361,15 @@ export function ClientView() {
     };
 
     return (
-      <div className="min-h-screen bg-[#0A0A0A] p-6">
+      <div className="min-h-screen bg-[var(--color-bg)] p-6">
         <header className="mb-10 space-y-1">
-          <h1 className="text-sm font-bold uppercase tracking-[0.2em] text-[#00D4A5]">
-            {config?.SHOP_NAME || 'SmartQueue'}
-          </h1>
+          {appConfig?.LOGO_URL ? (
+            <img src={appConfig.LOGO_URL} alt="Logo" className="h-14 w-auto object-contain mb-3 opacity-60" />
+          ) : (
+            <h1 className="text-sm font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--color-primary)' }}>
+              {config?.SHOP_NAME || 'SmartQueue'}
+            </h1>
+          )}
         </header>
 
         <main className="max-w-md mx-auto space-y-6">
@@ -423,12 +442,16 @@ export function ClientView() {
 
   // === BOOKING FORM ===
   return (
-    <div className="min-h-screen bg-[#0A0A0A] p-6 pb-24">
+    <div className="min-h-screen bg-[var(--color-bg)] p-6 pb-24">
       <header className="mb-10 space-y-1">
-        <h1 className="text-sm font-bold uppercase tracking-[0.2em] text-[#00D4A5]">
-          {config?.SHOP_NAME || 'SmartQueue'}
-        </h1>
-        <p className="text-2xl font-bold tracking-tight text-[#F1F5F9]">
+        {appConfig?.LOGO_URL ? (
+          <img src={appConfig.LOGO_URL} alt="Logo" className="h-14 w-auto object-contain mb-3 opacity-60" />
+        ) : (
+          <h1 className="text-sm font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--color-primary)' }}>
+            {config?.SHOP_NAME || 'SmartQueue'}
+          </h1>
+        )}
+        <p className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>
           Reserve seu lugar
         </p>
       </header>

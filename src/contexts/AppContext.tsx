@@ -27,6 +27,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setConfig(newConfig);
         setLoading(false);
         setError(null);
+
+        // Apply custom colors as CSS variables
+        const root = document.documentElement;
+        if (newConfig.PRIMARY_COLOR) {
+          root.style.setProperty('--color-primary', newConfig.PRIMARY_COLOR);
+        }
+        if (newConfig.SECONDARY_COLOR) {
+          root.style.setProperty('--color-secondary', newConfig.SECONDARY_COLOR);
+        }
+        if (newConfig.ACCENT_COLOR) {
+          root.style.setProperty('--color-accent', newConfig.ACCENT_COLOR);
+        }
+        // Update dark mode class
+        if (newConfig.DARK_MODE === false) {
+          document.body?.classList.remove('dark');
+        } else {
+          document.body?.classList.add('dark');
+        }
       });
 
       unsubState = ConfigService.onStateChange((newState) => {
