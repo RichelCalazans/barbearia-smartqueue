@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, CheckCircle2, XCircle, Clock, AlertCircle, Scissors, Calendar } from 'lucide-react';
 import { Card } from '../components/Card';
@@ -40,25 +40,23 @@ export function ClientView() {
   const { queue } = useQueue();
 
   useEffect(() => {
-    let configLoaded = false;
-    let stateLoaded = false;
+    const loaded = { config: false, state: false };
+    let mounted = true;
 
     const checkLoaded = () => {
-      if (configLoaded && stateLoaded) {
+      if (loaded.config && loaded.state && mounted) {
         setLoading(false);
       }
     };
 
     const unsubConfig = ConfigService.onConfigChange((c) => {
       setConfig(c);
-      configLoaded = true;
-      
-      // Load available dates when config changes
-      // Only show dates within the next 7 days (weekly schedule limit)
-      setCheckingDates(true);
-      const dates = getAvailableDates(c, 7); // Next 7 days max
+      loaded.config = true;
 
-      // Check availability for each enabled date
+      // Load available dates when config changes
+      setCheckingDates(true);
+      const dates = getAvailableDates(c, 7);
+
       Promise.all(
         dates.map(async (dateInfo) => {
           if (!dateInfo.disabled) {
@@ -70,7 +68,6 @@ export function ClientView() {
                 remainingSlots: availability.remainingSlots,
               };
             } catch (err) {
-              // If check fails, keep date enabled but without slot info
               console.warn('Error checking date availability:', dateInfo.date, err);
               return dateInfo;
             }
@@ -82,27 +79,30 @@ export function ClientView() {
         setCheckingDates(false);
       }).catch((err) => {
         console.error('Error loading available dates:', err);
-        // Set dates without availability check as fallback
         setAvailableDates(dates);
         setCheckingDates(false);
       });
-      
+
       checkLoaded();
     });
 
     const unsubState = ConfigService.onStateChange((s) => {
       setState(s);
-      stateLoaded = true;
+      loaded.state = true;
       checkLoaded();
     });
 
     ServiceService.listActive().then(setServices);
 
     const timeout = setTimeout(() => {
-      setLoading(false);
+      if (mounted) {
+        setLoading(false);
+        setState((prev: AppState | null) => prev ?? { agendaAberta: false, agendaPausada: false, dataAbertura: null });
+      }
     }, 3000);
 
     return () => {
+      mounted = false;
       unsubConfig();
       unsubState();
       clearTimeout(timeout);
