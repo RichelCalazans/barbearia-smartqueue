@@ -127,6 +127,34 @@ export function ClientView() {
     return unsub;
   }, [ticketId]);
 
+  const handleDateNascimentoChange = (value: string) => {
+    // Remove non-numeric characters
+    let cleaned = value.replace(/\D/g, '');
+
+    // Auto-format as DD/MM/YYYY
+    if (cleaned.length >= 2) {
+      cleaned = cleaned.slice(0, 2) + (cleaned.length > 2 ? '/' + cleaned.slice(2) : '');
+    }
+    if (cleaned.length >= 5) {
+      cleaned = cleaned.slice(0, 5) + (cleaned.length > 5 ? '/' + cleaned.slice(5, 9) : '');
+    }
+
+    // If complete (DD/MM/YYYY), convert to YYYY-MM-DD format for storage
+    if (cleaned.length === 10) {
+      const [day, month, year] = cleaned.split('/');
+      const isoDate = `${year}-${month}-${day}`;
+      // Validate date
+      const date = new Date(isoDate + 'T00:00:00');
+      if (!isNaN(date.getTime())) {
+        setDataNascimento(isoDate);
+        return;
+      }
+    }
+
+    // Store the formatted display value
+    setDataNascimento(cleaned as any);
+  };
+
   const handleCheckClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!telefone || telefone.length < 10) return;
@@ -163,13 +191,8 @@ export function ClientView() {
       return;
     }
 
-    // Validate selected date
+    // Determine target date: empty means "Hoje" was selected
     const targetDate = dataAgendamento || new Date().toISOString().split('T')[0];
-    const isDateValid = isDateEnabled(targetDate, config);
-    if (!isDateValid) {
-      setError('Data selecionada não está disponível.');
-      return;
-    }
 
     setSubmitting(true);
     setError(null);
@@ -232,7 +255,7 @@ export function ClientView() {
       <div className="min-h-screen bg-[var(--color-bg)] p-6 pb-24">
         <header className="mb-10 space-y-1">
           {appConfig?.LOGO_URL ? (
-            <img src={appConfig.LOGO_URL} alt="Logo" className="h-14 w-auto object-contain mb-3 opacity-60" />
+            <img src={appConfig.LOGO_URL} alt="Logo" className="h-14 w-auto object-contain mb-3 opacity-60 invert" />
           ) : (
             <h1 className="text-sm font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--color-primary)' }}>
               {config?.SHOP_NAME || 'SmartQueue'}
@@ -364,7 +387,7 @@ export function ClientView() {
       <div className="min-h-screen bg-[var(--color-bg)] p-6">
         <header className="mb-10 space-y-1">
           {appConfig?.LOGO_URL ? (
-            <img src={appConfig.LOGO_URL} alt="Logo" className="h-14 w-auto object-contain mb-3 opacity-60" />
+            <img src={appConfig.LOGO_URL} alt="Logo" className="h-14 w-auto object-contain mb-3 opacity-60 invert" />
           ) : (
             <h1 className="text-sm font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--color-primary)' }}>
               {config?.SHOP_NAME || 'SmartQueue'}
@@ -671,9 +694,11 @@ export function ClientView() {
                   />
                   <Input
                     label="Data de Nascimento"
-                    type="date"
-                    value={dataNascimento}
-                    onChange={(e) => setDataNascimento(e.target.value)}
+                    type="text"
+                    placeholder="DD/MM/YYYY"
+                    value={dataNascimento.includes('-') ? dataNascimento.split('-').reverse().join('/') : dataNascimento}
+                    onChange={(e) => handleDateNascimentoChange(e.target.value)}
+                    maxLength={10}
                     required
                   />
                 </div>

@@ -13,15 +13,6 @@
   --color-text-muted: #64748B;
 }
 
-:root:not(.dark) {
-  --color-bg: #F8FAFC;
-  --color-bg-card: #FFFFFF;
-  --color-bg-input: #F8FAFC;
-  --color-border: #E2E8F0;
-  --color-text: #0F172A;
-  --color-text-muted: #64748B;
-}
-
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;

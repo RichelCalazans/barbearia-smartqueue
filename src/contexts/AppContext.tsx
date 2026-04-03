@@ -39,12 +39,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (newConfig.ACCENT_COLOR) {
           root.style.setProperty('--color-accent', newConfig.ACCENT_COLOR);
         }
-        // Update dark mode class
-        if (newConfig.DARK_MODE === false) {
-          document.body?.classList.remove('dark');
-        } else {
-          document.body?.classList.add('dark');
-        }
+        // Dark mode is always enabled
+        document.documentElement.classList.add('dark');
       });
 
       unsubState = ConfigService.onStateChange((newState) => {

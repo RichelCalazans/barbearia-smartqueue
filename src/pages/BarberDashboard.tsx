@@ -930,27 +930,7 @@ export function BarberDashboard() {
               </div>
             </div>
 
-            {/* Dark Mode Toggle */}
-            <div className="flex items-center justify-between p-4 rounded-xl bg-[#1A1A1A] border border-[#1E1E1E]">
-              <div className="space-y-1">
-                <p className="text-sm font-bold text-[#F1F5F9]">Tema Escuro</p>
-                <p className="text-xs text-[#64748B]">Usar fundo escuro</p>
-              </div>
-              <button 
-                onClick={() => setTempConfig({ ...tempConfig, DARK_MODE: !tempConfig.DARK_MODE })}
-                className={cn(
-                  "w-12 h-6 rounded-full transition-colors relative",
-                  tempConfig.DARK_MODE ? "bg-[#00D4A5]" : "bg-[#334155]"
-                )}
-              >
-                <div className={cn(
-                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
-                  tempConfig.DARK_MODE ? "left-7" : "left-1"
-                )} />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between p-4 rounded-xl bg-[#1A1A1A] border border-[#1E1E1E]">
+<div className="flex items-center justify-between p-4 rounded-xl bg-[#1A1A1A] border border-[#1E1E1E]">
               <div className="space-y-1">
                 <p className="text-sm font-bold text-[#F1F5F9]">Abertura Automática</p>
                 <p className="text-xs text-[#64748B]">Abrir e fechar a fila baseado no horário</p>
