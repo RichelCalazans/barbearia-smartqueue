@@ -480,9 +480,8 @@ export function BarberDashboard() {
                   </div>
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                     <Button
-                      className="h-12 px-8 font-bold"
+                      className="h-12 px-8 font-bold bg-[#25D366] hover:bg-[#25D366]/90 text-white"
                       onClick={() => handleWhatsApp(inService.telefone, inService.clienteNome)}
-                      variant="tertiary"
                       title="Enviar mensagem via WhatsApp"
                     >
                       <MessageCircle className="mr-2 h-5 w-5" /> WhatsApp

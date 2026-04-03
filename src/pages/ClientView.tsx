@@ -13,7 +13,7 @@ import { ConfigService } from '../services/ConfigService';
 import { useQueue } from '../hooks/useQueue';
 import { useApp } from '../contexts/AppContext';
 import { Service, QueueItem, AppConfig, AppState } from '../types';
-import { isDateEnabled, getAvailableDates, getScheduleForDate, formatDateDisplay } from '../utils';
+import { getAvailableDates, getScheduleForDate, formatDateDisplay } from '../utils';
 
 export function ClientView() {
   const { config: appConfig } = useApp();
