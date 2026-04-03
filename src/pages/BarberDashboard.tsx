@@ -27,7 +27,8 @@ import {
   Plus,
   Pencil,
   Trash2,
-  X
+  X,
+  MessageCircle
 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
@@ -234,6 +235,15 @@ export function BarberDashboard() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleWhatsApp = (telefone: string, clienteNome: string) => {
+    // Remove any non-numeric characters from phone
+    const phoneNumber = telefone.replace(/\D/g, '');
+    const message = `Oi ${clienteNome}! 👋 Você é o próximo para atendimento! Estou pronto aqui. 💈`;
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const openManageUsers = async () => {
@@ -471,6 +481,14 @@ export function BarberDashboard() {
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                     <Button
                       className="h-12 px-8 font-bold"
+                      onClick={() => handleWhatsApp(inService.telefone, inService.clienteNome)}
+                      variant="tertiary"
+                      title="Enviar mensagem via WhatsApp"
+                    >
+                      <MessageCircle className="mr-2 h-5 w-5" /> WhatsApp
+                    </Button>
+                    <Button
+                      className="h-12 px-8 font-bold"
                       onClick={() => { setModalType('FINALIZE'); setIsModalOpen(true); }}
                       disabled={isViewingFutureDate}
                       title={isViewingFutureDate ? 'Acao disponivel apenas para o dia atual' : ''}
@@ -561,15 +579,24 @@ export function BarberDashboard() {
                     <p className="text-xs text-[#64748B]">{item.servicos}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-[#F1F5F9]">
-                    {typeof item.horaPrevista === 'string'
-                      ? item.horaPrevista.match(/^\d{2}:\d{2}/)
-                        ? item.horaPrevista
-                        : item.horaPrevista.substring(0, 5)
-                      : '00:00'}
-                  </p>
-                  <p className="text-[10px] uppercase tracking-wider text-[#64748B] font-bold">Previsto</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleWhatsApp(item.telefone, item.clienteNome)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-[#00D4A5]/10 rounded-lg"
+                    title="Chamar via WhatsApp"
+                  >
+                    <MessageCircle className="h-5 w-5 text-[#00D4A5]" />
+                  </button>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-[#F1F5F9]">
+                      {typeof item.horaPrevista === 'string'
+                        ? item.horaPrevista.match(/^\d{2}:\d{2}/)
+                          ? item.horaPrevista
+                          : item.horaPrevista.substring(0, 5)
+                        : '00:00'}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-wider text-[#64748B] font-bold">Previsto</p>
+                  </div>
                 </div>
               </Card>
             ))}

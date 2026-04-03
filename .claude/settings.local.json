@@ -40,7 +40,10 @@
       "Skill(update-config)",
       "Bash(find . -type d -name *SKILLS* -o -name *skills* -o -name *Skills*)",
       "Bash(done)",
-      "Bash(/Users/richelcalazans/barbearia-smartqueue/.env.example:*)"
+      "Bash(/Users/richelcalazans/barbearia-smartqueue/.env.example:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(npx firebase:*)"
     ]
   }
 }
