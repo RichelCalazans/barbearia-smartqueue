@@ -887,8 +887,22 @@ export function BarberDashboard() {
           </div>
         ) : modalType === 'SETTINGS' && tempConfig ? (
           <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Geral</p>
+
+            {/* Nome da Barbearia */}
+            <div className="space-y-2">
+              <label className="text-xs text-[#64748B]">Nome da Barbearia</label>
+              <input
+                type="text"
+                placeholder="Ex: Barbearia Premium"
+                value={tempConfig.SHOP_NAME || ''}
+                onChange={e => setTempConfig({ ...tempConfig, SHOP_NAME: e.target.value })}
+                className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5]"
+              />
+            </div>
+
             <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Aparência</p>
-            
+
             {/* Logo URL */}
             <div className="space-y-2">
               <label className="text-xs text-[#64748B]">URL do Logo</label>
@@ -904,56 +918,32 @@ export function BarberDashboard() {
 
             {/* Cores */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Principal</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={tempConfig.PRIMARY_COLOR || '#00D4A5'}
-                    onChange={e => setTempConfig({ ...tempConfig, PRIMARY_COLOR: e.target.value })}
-                    className="w-10 h-10 rounded-lg cursor-pointer border-0"
-                  />
-                  <input
-                    type="text"
-                    value={tempConfig.PRIMARY_COLOR || '#00D4A5'}
-                    onChange={e => setTempConfig({ ...tempConfig, PRIMARY_COLOR: e.target.value })}
-                    className="flex-1 bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-2 py-2 text-xs text-[#F1F5F9] font-mono uppercase"
-                  />
-                </div>
+                <input
+                  type="color"
+                  value={tempConfig.PRIMARY_COLOR || '#00D4A5'}
+                  onChange={e => setTempConfig({ ...tempConfig, PRIMARY_COLOR: e.target.value })}
+                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-[#00D4A5] transition-colors"
+                />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Fundo</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={tempConfig.SECONDARY_COLOR || '#1A1A1A'}
-                    onChange={e => setTempConfig({ ...tempConfig, SECONDARY_COLOR: e.target.value })}
-                    className="w-10 h-10 rounded-lg cursor-pointer border-0"
-                  />
-                  <input
-                    type="text"
-                    value={tempConfig.SECONDARY_COLOR || '#1A1A1A'}
-                    onChange={e => setTempConfig({ ...tempConfig, SECONDARY_COLOR: e.target.value })}
-                    className="flex-1 bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-2 py-2 text-xs text-[#F1F5F9] font-mono uppercase"
-                  />
-                </div>
+                <input
+                  type="color"
+                  value={tempConfig.SECONDARY_COLOR || '#1A1A1A'}
+                  onChange={e => setTempConfig({ ...tempConfig, SECONDARY_COLOR: e.target.value })}
+                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-[#00D4A5] transition-colors"
+                />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Destaque</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={tempConfig.ACCENT_COLOR || '#0A0A0A'}
-                    onChange={e => setTempConfig({ ...tempConfig, ACCENT_COLOR: e.target.value })}
-                    className="w-10 h-10 rounded-lg cursor-pointer border-0"
-                  />
-                  <input
-                    type="text"
-                    value={tempConfig.ACCENT_COLOR || '#0A0A0A'}
-                    onChange={e => setTempConfig({ ...tempConfig, ACCENT_COLOR: e.target.value })}
-                    className="flex-1 bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-2 py-2 text-xs text-[#F1F5F9] font-mono uppercase"
-                  />
-                </div>
+                <input
+                  type="color"
+                  value={tempConfig.ACCENT_COLOR || '#0A0A0A'}
+                  onChange={e => setTempConfig({ ...tempConfig, ACCENT_COLOR: e.target.value })}
+                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-[#00D4A5] transition-colors"
+                />
               </div>
             </div>
 
