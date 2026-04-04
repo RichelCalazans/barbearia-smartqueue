@@ -154,7 +154,7 @@ export function ClientsPage({ config }: ClientsPageProps) {
             placeholder="Buscar por nome ou telefone..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full h-11 pl-11 pr-4 rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5] transition-all"
+            className="w-full h-11 pl-11 pr-4 rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
           />
         </div>
       </div>
@@ -167,7 +167,7 @@ export function ClientsPage({ config }: ClientsPageProps) {
             className={cn(
               'px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-colors whitespace-nowrap',
               filter === key
-                ? 'bg-[#00D4A5] text-black'
+                ? 'bg-brand text-black'
                 : 'bg-[#1A1A1A] text-[#64748B] hover:text-[#F1F5F9]'
             )}
           >
@@ -193,7 +193,7 @@ export function ClientsPage({ config }: ClientsPageProps) {
             <Card
               key={client.id}
               className={cn(
-                'p-4 flex items-center gap-3 cursor-pointer hover:border-[#00D4A5]/30 transition-all',
+                'p-4 flex items-center gap-3 cursor-pointer hover:border-brand/30 transition-all',
                 !client.ativo && 'opacity-50'
               )}
               onClick={() => openDetail(client)}
@@ -368,7 +368,7 @@ export function ClientsPage({ config }: ClientsPageProps) {
                               {a.duracaoReal}min <span className="text-[#64748B]/50">(est. {a.duracaoEstimada}min)</span>
                             </p>
                           </div>
-                          <p className="text-xs text-[#00D4A5]">{a.servicos}</p>
+                          <p className="text-xs text-brand">{a.servicos}</p>
                         </div>
                       ))}
                     </div>

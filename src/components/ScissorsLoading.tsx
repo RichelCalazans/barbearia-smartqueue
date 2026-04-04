@@ -16,7 +16,7 @@ export function ScissorsLoading() {
         }}
         className="relative"
       >
-        <Scissors className="h-12 w-12 text-[#00D4A5]" />
+        <Scissors className="h-12 w-12 text-brand" />
         <motion.div
           animate={{
             opacity: [0, 1, 0],
@@ -27,7 +27,7 @@ export function ScissorsLoading() {
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-[#00D4A5]/30"
+          className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-brand/30"
         />
       </motion.div>
       <p className="text-sm font-medium text-[#64748B] animate-pulse">

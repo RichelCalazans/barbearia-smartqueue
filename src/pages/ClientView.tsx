@@ -15,6 +15,27 @@ import { useApp } from '../contexts/AppContext';
 import { Service, QueueItem, AppConfig, AppState } from '../types';
 import { getAvailableDates, getScheduleForDate, formatDateDisplay } from '../utils';
 
+function ShopLogo({ url, name, invert }: { url?: string; name: string; invert?: boolean }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!url || failed) {
+    return (
+      <h1 className="text-sm font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--color-primary)' }}>
+        {name}
+      </h1>
+    );
+  }
+
+  return (
+    <img
+      src={url}
+      alt=""
+      className={`h-14 w-14 object-cover rounded-full mb-3 opacity-60 ${invert ? 'invert' : ''}`}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export function ClientView() {
   const { config: appConfig } = useApp();
   const [loading, setLoading] = useState(true);
@@ -254,13 +275,7 @@ export function ClientView() {
     return (
       <div className="min-h-screen bg-[var(--color-bg)] p-6 pb-24">
         <header className="mb-10 space-y-1">
-          {appConfig?.LOGO_URL ? (
-            <img src={appConfig.LOGO_URL} alt="Logo" className="h-14 w-auto object-contain mb-3 opacity-60 invert" />
-          ) : (
-            <h1 className="text-sm font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--color-primary)' }}>
-              {config?.SHOP_NAME || 'SmartQueue'}
-            </h1>
-          )}
+          <ShopLogo url={appConfig?.LOGO_URL} name={config?.SHOP_NAME || 'SmartQueue'} invert />
           <p className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>
             {isInService ? 'É a sua vez!' : 'Você está na fila'}
           </p>
@@ -278,17 +293,17 @@ export function ClientView() {
             {/* Status badge */}
             <div className={`flex items-center gap-3 p-4 rounded-xl ${
               isInService
-                ? 'bg-[#00D4A5]/10 border border-[#00D4A5]/30'
+                ? 'bg-brand/10 border border-brand/30'
                 : 'bg-[#111111] border border-[#1E1E1E]'
             }`}>
               {isInService ? (
-                <Scissors className="h-5 w-5 text-[#00D4A5] shrink-0" />
+                <Scissors className="h-5 w-5 text-brand shrink-0" />
               ) : (
                 <Clock className="h-5 w-5 text-[#64748B] shrink-0" />
               )}
               <div>
                 <p className="text-xs text-[#64748B] uppercase tracking-wider">Status</p>
-                <p className={`font-bold ${isInService ? 'text-[#00D4A5]' : 'text-[#F1F5F9]'}`}>
+                <p className={`font-bold ${isInService ? 'text-brand' : 'text-[#F1F5F9]'}`}>
                   {isInService ? 'Em atendimento agora' : 'Aguardando'}
                 </p>
               </div>
@@ -386,13 +401,7 @@ export function ClientView() {
     return (
       <div className="min-h-screen bg-[var(--color-bg)] p-6">
         <header className="mb-10 space-y-1">
-          {appConfig?.LOGO_URL ? (
-            <img src={appConfig.LOGO_URL} alt="Logo" className="h-14 w-auto object-contain mb-3 opacity-60 invert" />
-          ) : (
-            <h1 className="text-sm font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--color-primary)' }}>
-              {config?.SHOP_NAME || 'SmartQueue'}
-            </h1>
-          )}
+          <ShopLogo url={appConfig?.LOGO_URL} name={config?.SHOP_NAME || 'SmartQueue'} invert />
         </header>
 
         <main className="max-w-md mx-auto space-y-6">
@@ -436,7 +445,7 @@ export function ClientView() {
                         <button
                           key={dateInfo.date}
                           onClick={() => handleSelectFutureDate(dateInfo)}
-                          className="w-full p-3 rounded-xl border bg-[#111111] border-[#1E1E1E] text-[#F1F5F9] hover:border-[#00D4A5]/30 hover:text-[#00D4A5] text-left transition-all flex items-center justify-between"
+                          className="w-full p-3 rounded-xl border bg-[#111111] border-[#1E1E1E] text-[#F1F5F9] hover:border-brand/30 hover:text-brand text-left transition-all flex items-center justify-between"
                         >
                           <div>
                             <p className="font-medium capitalize">{dateInfo.label}</p>
@@ -467,13 +476,7 @@ export function ClientView() {
   return (
     <div className="min-h-screen bg-[var(--color-bg)] p-6 pb-24">
       <header className="mb-10 space-y-1">
-        {appConfig?.LOGO_URL ? (
-          <img src={appConfig.LOGO_URL} alt="Logo" className="h-14 w-auto object-contain mb-3 opacity-60" />
-        ) : (
-          <h1 className="text-sm font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--color-primary)' }}>
-            {config?.SHOP_NAME || 'SmartQueue'}
-          </h1>
-        )}
+        <ShopLogo url={appConfig?.LOGO_URL} name={config?.SHOP_NAME || 'SmartQueue'} />
         <p className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>
           Reserve seu lugar
         </p>
@@ -510,8 +513,8 @@ export function ClientView() {
                       }}
                       className={`flex-1 p-4 rounded-xl font-bold text-center transition-all ${
                         !dataAgendamento
-                          ? 'bg-[#00D4A5]/10 border border-[#00D4A5] text-[#00D4A5]'
-                          : 'bg-[#111111] border border-[#1E1E1E] text-[#64748B] hover:border-[#00D4A5]/30 hover:text-[#00D4A5]'
+                          ? 'bg-brand/10 border border-brand text-brand'
+                          : 'bg-[#111111] border border-[#1E1E1E] text-[#64748B] hover:border-brand/30 hover:text-brand'
                       }`}
                     >
                       Hoje
@@ -521,8 +524,8 @@ export function ClientView() {
                       onClick={() => setShowDateSelector(!showDateSelector)}
                       className={`flex-1 p-4 rounded-xl font-bold text-center transition-all ${
                         dataAgendamento
-                          ? 'bg-[#00D4A5]/10 border border-[#00D4A5] text-[#00D4A5]'
-                          : 'bg-[#111111] border border-[#1E1E1E] text-[#64748B] hover:border-[#00D4A5]/30 hover:text-[#00D4A5]'
+                          ? 'bg-brand/10 border border-brand text-brand'
+                          : 'bg-[#111111] border border-[#1E1E1E] text-[#64748B] hover:border-brand/30 hover:text-brand'
                       }`}
                     >
                       Em breve...
@@ -564,8 +567,8 @@ export function ClientView() {
                                   dateInfo.disabled
                                     ? 'bg-[#111111] border-[#1E1E1E] text-[#64748B] opacity-50 cursor-not-allowed'
                                     : isSelected
-                                    ? 'bg-[#00D4A5]/10 border-[#00D4A5] text-[#00D4A5]'
-                                    : 'bg-[#111111] border-[#1E1E1E] text-[#F1F5F9] hover:border-[#00D4A5]/30 hover:text-[#00D4A5]'
+                                    ? 'bg-brand/10 border-brand text-brand'
+                                    : 'bg-[#111111] border-[#1E1E1E] text-[#F1F5F9] hover:border-brand/30 hover:text-brand'
                                 }`}
                               >
                                 <div>
@@ -593,14 +596,14 @@ export function ClientView() {
                   )}
                   
                   {selectedDateInfo && (
-                    <div className="p-3 rounded-xl bg-[#00D4A5]/10 border border-[#00D4A5]/30 flex items-center gap-3">
-                      <Calendar className="h-5 w-5 text-[#00D4A5]" />
+                    <div className="p-3 rounded-xl bg-brand/10 border border-brand/30 flex items-center gap-3">
+                      <Calendar className="h-5 w-5 text-brand" />
                       <div>
-                        <p className="text-sm font-medium text-[#00D4A5]">
+                        <p className="text-sm font-medium text-brand">
                           {selectedDateInfo.label}
                         </p>
                         {selectedDateInfo.schedule && (
-                          <p className="text-xs text-[#00D4A5]/80">
+                          <p className="text-xs text-brand/80">
                             {selectedDateInfo.schedule.openTime} - {selectedDateInfo.schedule.closeTime}
                           </p>
                         )}
@@ -718,8 +721,8 @@ export function ClientView() {
                 className="space-y-8"
               >
                 <div className="space-y-4 text-center">
-                  <div className="h-20 w-20 rounded-full bg-[#00D4A5]/10 flex items-center justify-center mx-auto mb-4">
-                    <User className="h-10 w-10 text-[#00D4A5]" />
+                  <div className="h-20 w-20 rounded-full bg-brand/10 flex items-center justify-center mx-auto mb-4">
+                    <User className="h-10 w-10 text-brand" />
                   </div>
                   <h3 className="text-xl font-bold text-[#F1F5F9]">Bem-vindo de volta, {nome}!</h3>
                   <p className="text-sm text-[#64748B]">
@@ -746,7 +749,7 @@ export function ClientView() {
             Ao entrar na fila, você concorda em receber notificações sobre o status do seu atendimento.
           </p>
           <div className="pt-4">
-            <Button variant="ghost" size="sm" className="text-[#64748B]/50 hover:text-[#00D4A5]" onClick={() => window.location.href = '/login'}>
+            <Button variant="ghost" size="sm" className="text-[#64748B]/50 hover:text-brand" onClick={() => window.location.href = '/login'}>
               Acesso do Barbeiro
             </Button>
           </div>

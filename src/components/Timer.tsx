@@ -51,7 +51,7 @@ export function Timer({ startTime, estimatedMinutes, className }: TimerProps) {
             cy="96"
             r="82"
             fill="transparent"
-            stroke={isOvertime ? '#EF4444' : isUrgent ? '#EAB308' : '#00D4A5'}
+            stroke={isOvertime ? '#EF4444' : isUrgent ? '#EAB308' : 'var(--color-primary)'}
             strokeWidth="8"
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}

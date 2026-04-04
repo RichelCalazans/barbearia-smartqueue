@@ -74,7 +74,7 @@ export function ResetEstimativasModal({ config }: Props) {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs text-[#64748B]">Reage devagar</span>
-            <span className="text-sm font-bold text-[#00D4A5] tabular-nums">{ewmaAlpha.toFixed(2)}</span>
+            <span className="text-sm font-bold text-brand tabular-nums">{ewmaAlpha.toFixed(2)}</span>
             <span className="text-xs text-[#64748B]">Reage rápido</span>
           </div>
           <input
@@ -84,7 +84,7 @@ export function ResetEstimativasModal({ config }: Props) {
             step={0.05}
             value={ewmaAlpha}
             onChange={e => setEwmaAlpha(parseFloat(e.target.value))}
-            className="w-full accent-[#00D4A5]"
+            className="w-full accent-brand"
           />
           <p className="text-xs text-[#64748B]">
             Valor atual: <span className="font-mono text-[#F1F5F9]">{ewmaAlpha.toFixed(2)}</span>
@@ -122,7 +122,7 @@ export function ResetEstimativasModal({ config }: Props) {
           <span className="text-sm text-[#F1F5F9]">Entendo que isso afeta todos os clientes</span>
         </label>
         {resetAllResult && (
-          <p className="text-sm text-[#00D4A5]">{resetAllResult}</p>
+          <p className="text-sm text-brand">{resetAllResult}</p>
         )}
         <Button
           variant="danger"
@@ -147,7 +147,7 @@ export function ResetEstimativasModal({ config }: Props) {
             placeholder="Buscar por nome ou telefone..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full h-11 pl-9 pr-4 rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] text-[#F1F5F9] placeholder:text-[#64748B] text-sm focus:outline-none focus:border-[#00D4A5] transition-all"
+            className="w-full h-11 pl-9 pr-4 rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] text-[#F1F5F9] placeholder:text-[#64748B] text-sm focus:outline-none focus:border-brand transition-all"
           />
         </div>
 

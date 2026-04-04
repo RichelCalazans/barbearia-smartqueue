@@ -23,7 +23,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const variants = {
-    primary: 'bg-[#00D4A5] text-black hover:bg-[#00D4A5]/90',
+    primary: 'bg-brand text-black hover:bg-brand/90',
     secondary: 'bg-[#111111] text-[#F1F5F9] border border-[#1E1E1E] hover:bg-[#1A1A1A]',
     danger: 'bg-[#EF4444] text-white hover:bg-[#EF4444]/90',
     ghost: 'bg-transparent text-[#F1F5F9] hover:bg-[#1A1A1A]',
@@ -40,7 +40,7 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#00D4A5] focus:ring-offset-2 focus:ring-offset-[#0A0A0A]',
+        'inline-flex items-center justify-center rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 focus:ring-offset-[#0A0A0A]',
         variants[variant],
         sizes[size],
         className

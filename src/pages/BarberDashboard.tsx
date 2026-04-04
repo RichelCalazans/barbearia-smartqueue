@@ -397,7 +397,7 @@ export function BarberDashboard() {
       <header className="sticky top-0 z-40 bg-[#0A0A0A]/95 backdrop-blur-sm border-b border-[#1E1E1E] px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="space-y-0.5">
-            <h1 className="text-xs font-bold uppercase tracking-[0.2em] text-[#00D4A5]">
+            <h1 className="text-xs font-bold uppercase tracking-[0.2em] text-brand">
               {activeTab === 'FILA' ? 'Painel do Barbeiro' : activeTab === 'METRICAS' ? 'Métricas' : 'Clientes'}
             </h1>
             <p className="text-lg font-bold tracking-tight text-[#F1F5F9]">
@@ -482,7 +482,7 @@ export function BarberDashboard() {
         <section className="space-y-4">
           <h2 className="text-xs font-bold uppercase tracking-widest text-[#64748B] ml-1">Atendimento Atual</h2>
           {inService ? (
-            <Card className="relative overflow-hidden border-[#00D4A5]/20">
+            <Card className="relative overflow-hidden border-brand/20">
               <div className="flex flex-col md:flex-row items-center gap-8">
                 <Timer 
                   startTime={inService.horaChamada || Date.now()} 
@@ -492,7 +492,7 @@ export function BarberDashboard() {
                 <div className="flex-1 space-y-6 text-center md:text-left">
                   <div className="space-y-2">
                     <h3 className="text-3xl font-bold text-[#F1F5F9] tracking-tight">{inService.clienteNome}</h3>
-                    <p className="text-[#00D4A5] font-medium">{inService.servicos}</p>
+                    <p className="text-brand font-medium">{inService.servicos}</p>
                   </div>
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                     <Button
@@ -555,7 +555,7 @@ export function BarberDashboard() {
               className={cn(
                 "px-4 py-2 rounded-lg text-sm font-bold transition-all",
                 selectedQueueDate === today
-                  ? "bg-[#00D4A5] text-[#0A0A0A]"
+                  ? "bg-brand text-[#0A0A0A]"
                   : "bg-[#1A1A1A] text-[#64748B] hover:bg-[#252525]"
               )}
             >
@@ -566,7 +566,7 @@ export function BarberDashboard() {
               value={selectedQueueDate}
               onChange={(e) => setSelectedQueueDate(e.target.value)}
               min={today}
-              className="px-4 py-2 rounded-lg bg-[#1A1A1A] border border-[#333] text-[#F1F5F9] text-sm font-medium focus:outline-none focus:border-[#00D4A5] transition-all"
+              className="px-4 py-2 rounded-lg bg-[#1A1A1A] border border-[#333] text-[#F1F5F9] text-sm font-medium focus:outline-none focus:border-brand transition-all"
             />
             {isViewingFutureDate && (
               <span className="text-xs text-[#F59E0B] font-medium flex items-center gap-1">
@@ -580,11 +580,11 @@ export function BarberDashboard() {
             <h2 className="text-xs font-bold uppercase tracking-widest text-[#64748B]">
               {isViewingFutureDate ? 'Agendamentos do Dia' : 'Próximos na Fila'}
             </h2>
-            <span className="text-xs font-bold text-[#00D4A5]">{waiting.length} clientes</span>
+            <span className="text-xs font-bold text-brand">{waiting.length} clientes</span>
           </div>
           <div className="space-y-3">
             {waiting.map((item, index) => (
-              <Card key={item.id} className="p-4 flex items-center justify-between group hover:border-[#00D4A5]/30 transition-all">
+              <Card key={item.id} className="p-4 flex items-center justify-between group hover:border-brand/30 transition-all">
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 rounded-xl bg-[#1A1A1A] flex items-center justify-center text-sm font-bold text-[#64748B]">
                     {index + 1}
@@ -597,10 +597,10 @@ export function BarberDashboard() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => handleWhatsApp(item.telefone, item.clienteNome)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-[#00D4A5]/10 rounded-lg"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-brand/10 rounded-lg"
                     title="Chamar via WhatsApp"
                   >
-                    <MessageCircle className="h-5 w-5 text-[#00D4A5]" />
+                    <MessageCircle className="h-5 w-5 text-brand" />
                   </button>
                   <div className="text-right">
                     <p className="text-sm font-bold text-[#F1F5F9]">
@@ -630,7 +630,7 @@ export function BarberDashboard() {
 
         {/* Agenda Controls */}
         <section className="pt-8 border-t border-[#1E1E1E]">
-          <Card className="bg-gradient-to-br from-[#111111] to-[#0A0A0A] border-[#00D4A5]/10">
+          <Card className="bg-gradient-to-br from-[#111111] to-[#0A0A0A] border-brand/10">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="space-y-1 text-center md:text-left flex-1">
                 <h3 className="text-lg font-bold text-[#F1F5F9]">Controle da Agenda</h3>
@@ -804,8 +804,8 @@ export function BarberDashboard() {
                       className={cn(
                         'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors',
                         u.role === 'SUPER_ADMIN' || u.role === 'ADMIN'
-                          ? 'bg-[#00D4A5]/10 text-[#00D4A5] hover:bg-[#EF4444]/10 hover:text-[#EF4444]'
-                          : 'bg-[#334155]/20 text-[#64748B] hover:bg-[#00D4A5]/10 hover:text-[#00D4A5]'
+                          ? 'bg-brand/10 text-brand hover:bg-[#EF4444]/10 hover:text-[#EF4444]'
+                          : 'bg-[#334155]/20 text-[#64748B] hover:bg-brand/10 hover:text-brand'
                       )}
                       title={`Mudar role (atual: ${u.role})`}
                     >
@@ -828,21 +828,21 @@ export function BarberDashboard() {
 
             {/* Add user form */}
             {showAddUserForm ? (
-              <div className="space-y-3 p-4 rounded-xl bg-[#111111] border border-[#00D4A5]/20">
+              <div className="space-y-3 p-4 rounded-xl bg-[#111111] border border-brand/20">
                 <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Novo Usuário</p>
                 <input
                   type="text"
                   placeholder="Nome completo"
                   value={newUser.nome}
                   onChange={e => setNewUser(p => ({ ...p, nome: e.target.value }))}
-                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5] transition-all"
+                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
                 />
                 <input
                   type="email"
                   placeholder="Email"
                   value={newUser.email}
                   onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))}
-                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5] transition-all"
+                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
                 />
                 <div className="space-y-2">
                   <p className="text-xs text-[#64748B]">Função</p>
@@ -854,7 +854,7 @@ export function BarberDashboard() {
                         className={cn(
                           'p-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors',
                           newUser.role === role
-                            ? 'bg-[#00D4A5] text-black'
+                            ? 'bg-brand text-black'
                             : 'bg-[#1A1A1A] text-[#64748B] border border-[#1E1E1E]'
                         )}
                       >
@@ -897,7 +897,7 @@ export function BarberDashboard() {
                 placeholder="Ex: Barbearia Premium"
                 value={tempConfig.SHOP_NAME || ''}
                 onChange={e => setTempConfig({ ...tempConfig, SHOP_NAME: e.target.value })}
-                className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5]"
+                className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand"
               />
             </div>
 
@@ -911,7 +911,7 @@ export function BarberDashboard() {
                 placeholder="https://exemplo.com/logo.png"
                 value={tempConfig.LOGO_URL || ''}
                 onChange={e => setTempConfig({ ...tempConfig, LOGO_URL: e.target.value })}
-                className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5]"
+                className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand"
               />
               <p className="text-[10px] text-[#64748B]">Cole a URL de uma imagem (PNG, JPG)</p>
             </div>
@@ -924,7 +924,7 @@ export function BarberDashboard() {
                   type="color"
                   value={tempConfig.PRIMARY_COLOR || '#00D4A5'}
                   onChange={e => setTempConfig({ ...tempConfig, PRIMARY_COLOR: e.target.value })}
-                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-[#00D4A5] transition-colors"
+                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-brand transition-colors"
                 />
               </div>
               <div className="space-y-2">
@@ -933,7 +933,7 @@ export function BarberDashboard() {
                   type="color"
                   value={tempConfig.SECONDARY_COLOR || '#1A1A1A'}
                   onChange={e => setTempConfig({ ...tempConfig, SECONDARY_COLOR: e.target.value })}
-                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-[#00D4A5] transition-colors"
+                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-brand transition-colors"
                 />
               </div>
               <div className="space-y-2">
@@ -942,7 +942,7 @@ export function BarberDashboard() {
                   type="color"
                   value={tempConfig.ACCENT_COLOR || '#0A0A0A'}
                   onChange={e => setTempConfig({ ...tempConfig, ACCENT_COLOR: e.target.value })}
-                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-[#00D4A5] transition-colors"
+                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-brand transition-colors"
                 />
               </div>
             </div>
@@ -956,7 +956,7 @@ export function BarberDashboard() {
                 onClick={() => setTempConfig({ ...tempConfig, AUTO_OPEN_CLOSE: !tempConfig.AUTO_OPEN_CLOSE })}
                 className={cn(
                   "w-12 h-6 rounded-full transition-colors relative",
-                  tempConfig.AUTO_OPEN_CLOSE ? "bg-[#00D4A5]" : "bg-[#334155]"
+                  tempConfig.AUTO_OPEN_CLOSE ? "bg-brand" : "bg-[#334155]"
                 )}
               >
                 <div className={cn(
@@ -994,7 +994,7 @@ export function BarberDashboard() {
                         }}
                         className={cn(
                           "px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors",
-                          schedule.enabled ? "bg-[#00D4A5]/10 text-[#00D4A5]" : "bg-[#334155]/20 text-[#64748B]"
+                          schedule.enabled ? "bg-brand/10 text-brand" : "bg-[#334155]/20 text-[#64748B]"
                         )}
                       >
                         {schedule.enabled ? 'Ativo' : 'Inativo'}
@@ -1013,7 +1013,7 @@ export function BarberDashboard() {
                               newSchedule[idx] = { ...newSchedule[idx], openTime: e.target.value };
                               setTempConfig({ ...tempConfig, WEEKLY_SCHEDULE: newSchedule });
                             }}
-                            className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-[#00D4A5]/50"
+                            className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-brand/50"
                           />
                         </div>
                         <div className="space-y-1">
@@ -1027,7 +1027,7 @@ export function BarberDashboard() {
                               newSchedule[idx] = { ...newSchedule[idx], closeTime: e.target.value };
                               setTempConfig({ ...tempConfig, WEEKLY_SCHEDULE: newSchedule });
                             }}
-                            className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-[#00D4A5]/50"
+                            className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-brand/50"
                           />
                         </div>
                       </div>
@@ -1053,8 +1053,8 @@ export function BarberDashboard() {
                   className={cn(
                     'p-4 rounded-xl font-bold text-sm uppercase tracking-wider transition-all border-2',
                     pauseMinutes === option.minutes
-                      ? 'bg-[#00D4A5]/20 border-[#00D4A5] text-[#00D4A5]'
-                      : 'bg-[#1A1A1A] border-[#1E1E1E] text-[#64748B] hover:border-[#00D4A5]/50'
+                      ? 'bg-brand/20 border-brand text-brand'
+                      : 'bg-[#1A1A1A] border-[#1E1E1E] text-[#64748B] hover:border-brand/50'
                   )}
                 >
                   {option.label}
@@ -1072,14 +1072,14 @@ export function BarberDashboard() {
             )}
 
             {editingService ? (
-              <div className="space-y-3 p-4 rounded-xl bg-[#111111] border border-[#00D4A5]/20">
+              <div className="space-y-3 p-4 rounded-xl bg-[#111111] border border-brand/20">
                 <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Editando Serviço</p>
                 <input
                   type="text"
                   placeholder="Nome do serviço"
                   value={editingService.nome}
                   onChange={e => setEditingService(p => ({ ...p, nome: e.target.value }))}
-                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5] transition-all"
+                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -1088,7 +1088,7 @@ export function BarberDashboard() {
                       type="number"
                       value={editingService.tempoBase}
                       onChange={e => setEditingService(p => ({ ...p, tempoBase: parseInt(e.target.value) || 0 }))}
-                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5] transition-all"
+                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
                     />
                   </div>
                   <div className="space-y-1">
@@ -1097,7 +1097,7 @@ export function BarberDashboard() {
                       type="number"
                       value={editingService.preco}
                       onChange={e => setEditingService(p => ({ ...p, preco: parseFloat(e.target.value) || 0 }))}
-                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5] transition-all"
+                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
                     />
                   </div>
                 </div>
@@ -1111,14 +1111,14 @@ export function BarberDashboard() {
                 </div>
               </div>
             ) : showAddServiceForm ? (
-              <div className="space-y-3 p-4 rounded-xl bg-[#111111] border border-[#00D4A5]/20">
+              <div className="space-y-3 p-4 rounded-xl bg-[#111111] border border-brand/20">
                 <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Novo Serviço</p>
                 <input
                   type="text"
                   placeholder="Nome do serviço"
                   value={newService.nome}
                   onChange={e => setNewService(p => ({ ...p, nome: e.target.value }))}
-                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5] transition-all"
+                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -1127,7 +1127,7 @@ export function BarberDashboard() {
                       type="number"
                       value={newService.tempoBase}
                       onChange={e => setNewService(p => ({ ...p, tempoBase: parseInt(e.target.value) || 0 }))}
-                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5] transition-all"
+                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
                     />
                   </div>
                   <div className="space-y-1">
@@ -1136,7 +1136,7 @@ export function BarberDashboard() {
                       type="number"
                       value={newService.preco}
                       onChange={e => setNewService(p => ({ ...p, preco: parseFloat(e.target.value) || 0 }))}
-                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-[#00D4A5] transition-all"
+                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
                     />
                   </div>
                 </div>
@@ -1169,7 +1169,7 @@ export function BarberDashboard() {
                     <p className="text-sm font-bold text-[#F1F5F9]">{s.nome}</p>
                     <p className="text-xs text-[#64748B] flex items-center gap-2">
                       <Clock className="h-3 w-3" />{s.tempoBase}min
-                      <span className="text-[#00D4A5]">R$ {s.preco.toFixed(2)}</span>
+                      <span className="text-brand">R$ {s.preco.toFixed(2)}</span>
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -1177,7 +1177,7 @@ export function BarberDashboard() {
                       onClick={() => handleToggleServiceActive(s)}
                       className={cn(
                         'px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors',
-                        s.ativo ? 'bg-[#00D4A5]/10 text-[#00D4A5]' : 'bg-[#334155]/20 text-[#64748B]'
+                        s.ativo ? 'bg-brand/10 text-brand' : 'bg-[#334155]/20 text-[#64748B]'
                       )}
                     >
                       {s.ativo ? 'Ativo' : 'Inativo'}
@@ -1214,7 +1214,7 @@ export function BarberDashboard() {
                   setSkipPauseConfirm(e.target.checked);
                   localStorage.setItem('sq_skip_pause_confirm', e.target.checked ? 'true' : 'false');
                 }}
-                className="w-5 h-5 rounded border-[#1E1E1E] bg-[#1A1A1A] text-[#00D4A5] focus:ring-[#00D4A5]/50"
+                className="w-5 h-5 rounded border-[#1E1E1E] bg-[#1A1A1A] text-brand focus:ring-brand/50"
               />
               <span className="text-sm text-[#64748B]">Não mostrar novamente</span>
             </label>

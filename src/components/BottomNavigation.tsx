@@ -29,7 +29,7 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
               onClick={() => onTabChange(tab.id)}
               className={cn(
                 'relative flex flex-col items-center gap-1 transition-all duration-300',
-                isActive ? 'text-[#00D4A5]' : 'text-[#64748B] hover:text-[#F1F5F9]'
+                isActive ? 'text-brand' : 'text-[#64748B] hover:text-[#F1F5F9]'
               )}
             >
               <Icon className={cn('h-6 w-6', isActive && 'animate-pulse')} />
@@ -39,7 +39,7 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
               {isActive && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute -top-4 h-1 w-8 bg-[#00D4A5] rounded-full"
+                  className="absolute -top-4 h-1 w-8 bg-brand rounded-full"
                   transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 />
               )}

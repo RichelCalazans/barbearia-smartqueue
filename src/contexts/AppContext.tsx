@@ -31,13 +31,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Apply custom colors as CSS variables
         const root = document.documentElement;
         if (newConfig.PRIMARY_COLOR) {
-          root.style.setProperty('--color-primary', newConfig.PRIMARY_COLOR);
+          root.style.setProperty('--app-primary', newConfig.PRIMARY_COLOR);
         }
         if (newConfig.SECONDARY_COLOR) {
-          root.style.setProperty('--color-secondary', newConfig.SECONDARY_COLOR);
+          root.style.setProperty('--app-secondary', newConfig.SECONDARY_COLOR);
         }
         if (newConfig.ACCENT_COLOR) {
-          root.style.setProperty('--color-accent', newConfig.ACCENT_COLOR);
+          root.style.setProperty('--app-accent', newConfig.ACCENT_COLOR);
         }
         // Dark mode is always enabled
         document.documentElement.classList.add('dark');

@@ -40,7 +40,7 @@ function DeltaBadge({ value }: { value: number }) {
   return (
     <span
       className={`text-[10px] font-bold flex items-center gap-0.5 ${
-        isPositive ? 'text-[#00D4A5]' : 'text-[#EF4444]'
+        isPositive ? 'text-brand' : 'text-[#EF4444]'
       }`}
     >
       {isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
@@ -76,7 +76,7 @@ function BarChart({ data }: { data: DailyCount[] }) {
               width={24}
               height={Math.max(barH, 2)}
               rx={4}
-              fill={isMax ? '#00D4A5' : d.count > 0 ? '#00D4A5' : '#1E1E1E'}
+              fill={isMax ? 'var(--color-primary)' : d.count > 0 ? 'var(--color-primary)' : '#1E1E1E'}
               opacity={isMax ? 1 : 0.6}
             />
             {d.count > 0 && (
@@ -126,7 +126,7 @@ function PeakHours({ data }: { data: HourDistribution[] }) {
                 className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${(d.count / maxCount) * 100}%`,
-                  backgroundColor: isPeak ? '#F59E0B' : '#00D4A5',
+                  backgroundColor: isPeak ? '#F59E0B' : 'var(--color-primary)',
                 }}
               />
             </div>
@@ -209,7 +209,7 @@ export function MetricsPage({ config }: MetricsPageProps) {
             onClick={() => setPeriod(p)}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer ${
               period === p
-                ? 'bg-[#00D4A5] text-black font-bold'
+                ? 'bg-brand text-black font-bold'
                 : 'bg-[#1A1A1A] text-[#64748B]'
             }`}
           >
@@ -311,7 +311,7 @@ export function MetricsPage({ config }: MetricsPageProps) {
                   </div>
                   <div className="bg-[#1A1A1A] rounded-full h-1.5 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-[#00D4A5] transition-all duration-500"
+                      className="h-full rounded-full bg-brand transition-all duration-500"
                       style={{ width: `${s.percentage}%` }}
                     />
                   </div>
@@ -353,7 +353,7 @@ export function MetricsPage({ config }: MetricsPageProps) {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-[#F1F5F9]">{c.clienteNome}</p>
                     </div>
-                    <span className="text-xs font-bold text-[#00D4A5]">{c.count}x</span>
+                    <span className="text-xs font-bold text-brand">{c.count}x</span>
                   </div>
                 );
               })}

@@ -62,7 +62,7 @@ export function Login() {
         className="w-full max-w-md space-y-8 text-center"
       >
         <div className="space-y-4">
-          <div className="h-20 w-20 rounded-3xl bg-gradient-to-br from-[#00D4A5] to-[#00A380] mx-auto flex items-center justify-center shadow-2xl shadow-[#00D4A5]/20 rotate-12">
+          <div className="h-20 w-20 rounded-3xl bg-gradient-to-br from-brand to-brand-dark mx-auto flex items-center justify-center shadow-2xl shadow-brand/20 rotate-12">
             <Scissors className="h-10 w-10 text-white" />
           </div>
           <div className="space-y-2">
