@@ -44,6 +44,9 @@ export function useQueue(selectedDate?: string) {
       });
       setQueue(items);
       setLoading(false);
+    }, (error) => {
+      console.error('useQueue snapshot error:', error);
+      setLoading(false);
     });
 
     return unsubscribe;
