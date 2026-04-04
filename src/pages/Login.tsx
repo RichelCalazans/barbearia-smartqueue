@@ -4,7 +4,7 @@ import { Scissors, LogIn, AlertCircle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { signIn, signInWithGoogle, getGoogleRedirectResult } from '../firebase';
+import { signIn, signInWithGoogle } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 
 export function Login() {
@@ -13,14 +13,6 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    getGoogleRedirectResult().catch((err) => {
-      if (err?.code !== 'auth/popup-closed-by-user') {
-        setError(err?.message || 'Erro ao entrar com Google');
-      }
-    });
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
