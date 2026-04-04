@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   orderBy,
   limit as firestoreLimit,
+  writeBatch,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Client, Attendance, ClientWithInsights } from '../types';
@@ -144,6 +145,47 @@ export class ClientService {
       handleFirestoreError(error, OperationType.DELETE, path);
       throw error;
     }
+  }
+
+  static async resetTempoMedioAll(): Promise<number> {
+    const path = this.COLLECTION;
+    try {
+      const snapshot = await getDocs(collection(db, path));
+      const toReset = snapshot.docs.filter(d => d.data().tempoMedio !== 0);
+      if (toReset.length === 0) return 0;
+
+      // Firestore batch limit is 500 ops
+      for (let i = 0; i < toReset.length; i += 500) {
+        const batch = writeBatch(db);
+        toReset.slice(i, i + 500).forEach(d => {
+          batch.update(d.ref, { tempoMedio: 0 });
+        });
+        await batch.commit();
+      }
+      return toReset.length;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+      throw error;
+    }
+  }
+
+  static async resetTempoMedioById(id: string): Promise<void> {
+    const path = this.COLLECTION;
+    try {
+      await updateDoc(doc(db, path, id), { tempoMedio: 0 });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+      throw error;
+    }
+  }
+
+  static async searchByNomeOrTelefone(query_: string): Promise<Client[]> {
+    const all = await this.listAllIncludingInactive();
+    const q = query_.toLowerCase().trim();
+    if (!q) return [];
+    return all
+      .filter(c => c.nome.toLowerCase().includes(q) || c.telefone.includes(q))
+      .slice(0, 20);
   }
 
   static enrichClients(clients: Client[], allAttendances: Attendance[], today: string): ClientWithInsights[] {

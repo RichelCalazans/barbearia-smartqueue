@@ -49,6 +49,7 @@ import { cn } from '../utils';
 import { MetricsPage } from './MetricsPage';
 import { ClientsPage } from './ClientsPage';
 import { BottomNavigation, AdminTab } from '../components/BottomNavigation';
+import { ResetEstimativasModal } from '../components/ResetEstimativasModal';
 
 export function BarberDashboard() {
   const { user, isAdmin, isSuperAdmin, hasPermission, appUser, loading: authLoading, signOut } = useAuth();
@@ -61,7 +62,7 @@ export function BarberDashboard() {
   const [state, setState] = useState<AppState | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'PAUSE_TIME' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | null>(null);
+  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'PAUSE_TIME' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | 'RESET_ESTIMATIVAS' | null>(null);
   const [pauseMinutes, setPauseMinutes] = useState<number>(15);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [tempConfig, setTempConfig] = useState<AppConfig | null>(null);
@@ -289,6 +290,16 @@ export function BarberDashboard() {
     }
   };
 
+  const handleDeleteUser = async (u: AppUser) => {
+    if (!confirm(`Remover "${u.nome}" (${u.email})? Essa ação não pode ser desfeita.`)) return;
+    try {
+      await UserService.deleteUser(u.id);
+      setUsers(prev => prev.filter(x => x.id !== u.id));
+    } catch {
+      setUserError('Erro ao remover usuário.');
+    }
+  };
+
   const openManageServices = async () => {
     setShowAddServiceForm(false);
     setEditingService(null);
@@ -400,6 +411,11 @@ export function BarberDashboard() {
             <Button variant="ghost" size="icon" onClick={openManageUsers} title="Gerenciar usuários">
               <UserPlus className="h-5 w-5 text-[#64748B]" />
             </Button>
+            {isSuperAdmin && (
+              <Button variant="ghost" size="icon" onClick={() => { setModalType('RESET_ESTIMATIVAS'); setIsModalOpen(true); }} title="Estimativas de tempo">
+                <TimerIcon className="h-5 w-5 text-[#64748B]" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }}>
               <Settings className="h-5 w-5 text-[#64748B]" />
             </Button>
@@ -711,7 +727,8 @@ export function BarberDashboard() {
           modalType === 'CLOSE_AGENDA_KEEP' ? 'Encerrar Dia (Manter Fila)' :
           modalType === 'SETTINGS' ? 'Configurações Automáticas' :
           modalType === 'MANAGE_USERS' ? 'Gerenciar Usuários' :
-          modalType === 'MANAGE_SERVICES' ? 'Gerenciar Serviços' : 'Fechar Agenda'
+          modalType === 'MANAGE_SERVICES' ? 'Gerenciar Serviços' :
+          modalType === 'RESET_ESTIMATIVAS' ? 'Estimativas de Tempo' : 'Fechar Agenda'
         }
         footer={
           modalType === 'PAUSE_TIME' ? (
@@ -745,7 +762,7 @@ export function BarberDashboard() {
                 </Button>
               </div>
             </>
-          ) : modalType !== 'MANAGE_USERS' && modalType !== 'MANAGE_SERVICES' ? (
+          ) : modalType !== 'MANAGE_USERS' && modalType !== 'MANAGE_SERVICES' && modalType !== 'RESET_ESTIMATIVAS' ? (
             <>
               <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
               <Button
@@ -781,19 +798,30 @@ export function BarberDashboard() {
                       <Mail className="h-3 w-3" />{u.email}
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleToggleRole(u)}
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors',
-                      u.role === 'SUPER_ADMIN' || u.role === 'ADMIN'
-                        ? 'bg-[#00D4A5]/10 text-[#00D4A5] hover:bg-[#EF4444]/10 hover:text-[#EF4444]'
-                        : 'bg-[#334155]/20 text-[#64748B] hover:bg-[#00D4A5]/10 hover:text-[#00D4A5]'
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleRole(u)}
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors',
+                        u.role === 'SUPER_ADMIN' || u.role === 'ADMIN'
+                          ? 'bg-[#00D4A5]/10 text-[#00D4A5] hover:bg-[#EF4444]/10 hover:text-[#EF4444]'
+                          : 'bg-[#334155]/20 text-[#64748B] hover:bg-[#00D4A5]/10 hover:text-[#00D4A5]'
+                      )}
+                      title={`Mudar role (atual: ${u.role})`}
+                    >
+                      <Shield className="h-3 w-3" />
+                      {u.role === 'SUPER_ADMIN' ? 'Super' : u.role === 'ADMIN' ? 'Admin' : u.role === 'BARBEIRO' ? 'Barbeiro' : 'Recep'}
+                    </button>
+                    {isSuperAdmin && u.role !== 'SUPER_ADMIN' && (
+                      <button
+                        onClick={() => handleDeleteUser(u)}
+                        className="p-1.5 rounded-lg text-[#64748B] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors"
+                        title="Remover usuário"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     )}
-                    title={`Mudar role (atual: ${u.role})`}
-                  >
-                    <Shield className="h-3 w-3" />
-                    {u.role === 'SUPER_ADMIN' ? 'Super' : u.role === 'ADMIN' ? 'Admin' : u.role === 'BARBEIRO' ? 'Barbeiro' : 'Recep'}
-                  </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1181,6 +1209,8 @@ export function BarberDashboard() {
               ))}
             </div>
           </div>
+        ) : modalType === 'RESET_ESTIMATIVAS' ? (
+          config ? <ResetEstimativasModal config={config} /> : null
         ) : modalType === 'PAUSE_AGENDA' ? (
           <div className="space-y-4">
             <p className="text-[#64748B] leading-relaxed">

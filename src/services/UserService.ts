@@ -4,6 +4,7 @@ import {
   setDoc,
   getDocs,
   updateDoc,
+  deleteDoc,
   query,
   where,
 } from 'firebase/firestore';
@@ -41,7 +42,7 @@ export class UserService {
     const data = await res.json();
     const uid: string = data.localId;
 
-    const permissions = ROLE_PERMISSATIONS[role];
+    const permissions = ROLE_PERMISSIONS[role];
 
     await setDoc(doc(db, this.COLLECTION, uid), {
       email,
@@ -75,8 +76,12 @@ export class UserService {
   }
 
   static async updateRole(userId: string, role: UserRole): Promise<void> {
-    const permissions = ROLE_PERMISSATIONS[role];
+    const permissions = ROLE_PERMISSIONS[role];
     await updateDoc(doc(db, this.COLLECTION, userId), { role, permissions });
+  }
+
+  static async deleteUser(userId: string): Promise<void> {
+    await deleteDoc(doc(db, this.COLLECTION, userId));
   }
 
   static async findByEmail(email: string): Promise<AppUser | null> {
