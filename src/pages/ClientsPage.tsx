@@ -8,6 +8,7 @@ import { Skeleton } from '../components/Skeleton';
 import { ClientService } from '../services/ClientService';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { ClientWithInsights, ClientSegment, Attendance, AppConfig } from '../types';
+import { useAuth } from '../hooks/useAuth';
 import { cn } from '../utils';
 
 interface ClientsPageProps {
@@ -15,6 +16,7 @@ interface ClientsPageProps {
 }
 
 export function ClientsPage({ config }: ClientsPageProps) {
+  const { isSuperAdmin } = useAuth();
   const [clients, setClients] = useState<ClientWithInsights[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -323,28 +325,30 @@ export function ClientsPage({ config }: ClientsPageProps) {
                   )}
                 </div>
 
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditMode(true)}>
-                    <Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar
-                  </Button>
-                  <Button
-                    variant={selectedClient.ativo ? 'danger' : 'secondary'}
-                    size="sm"
-                    className="flex-1"
-                    onClick={handleToggleActive}
-                    loading={submitting}
-                  >
-                    {selectedClient.ativo ? <><ShieldOff className="mr-1.5 h-3.5 w-3.5" /> Desativar</> : <><Shield className="mr-1.5 h-3.5 w-3.5" /> Reativar</>}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={handleDeleteClient}
-                    loading={submitting}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                {isSuperAdmin && (
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditMode(true)}>
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar
+                    </Button>
+                    <Button
+                      variant={selectedClient.ativo ? 'danger' : 'secondary'}
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleToggleActive}
+                      loading={submitting}
+                    >
+                      {selectedClient.ativo ? <><ShieldOff className="mr-1.5 h-3.5 w-3.5" /> Desativar</> : <><Shield className="mr-1.5 h-3.5 w-3.5" /> Reativar</>}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={handleDeleteClient}
+                      loading={submitting}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
 
                 <div className="space-y-3">
                   <h4 className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Histórico de Atendimentos</h4>
