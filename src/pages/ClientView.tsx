@@ -7,6 +7,7 @@ import { Input } from '../components/Input';
 import { ServiceChip } from '../components/ServiceChip';
 import { ScissorsLoading } from '../components/ScissorsLoading';
 import { ClientService } from '../services/ClientService';
+import { NotificationService } from '../services/NotificationService';
 import { ServiceService } from '../services/ServiceService';
 import { QueueService } from '../services/QueueService';
 import { ConfigService } from '../services/ConfigService';
@@ -136,8 +137,14 @@ export function ClientView() {
       setActiveTicket(null);
       return;
     }
+    let prevStatus: string | null = null;
     const unsub = QueueService.onTicketChange(ticketId, (ticket) => {
       if (ticket && (ticket.status === 'AGUARDANDO' || ticket.status === 'EM_ATENDIMENTO')) {
+        // Notify when status changes to EM_ATENDIMENTO
+        if (prevStatus && prevStatus !== ticket.status && ticket.status === 'EM_ATENDIMENTO') {
+          NotificationService.notifyCalled(ticket.clienteNome);
+        }
+        prevStatus = ticket.status;
         setActiveTicket(ticket);
       } else {
         localStorage.removeItem('sq_ticket_id');
@@ -220,6 +227,10 @@ export function ClientView() {
     try {
       const { client } = await ClientService.findOrCreate(nome, telefone, dataNascimento);
       const chosenServices = services.filter(s => selectedServices.includes(s.id));
+
+      // Request browser notification permission
+      await NotificationService.requestPermission();
+
       const newTicketId = await QueueService.addToQueue(client, chosenServices, config, targetDate);
       localStorage.setItem('sq_ticket_id', newTicketId);
       setTicketId(newTicketId);

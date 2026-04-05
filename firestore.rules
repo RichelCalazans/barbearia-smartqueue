@@ -19,7 +19,11 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSuperAdmin();
+      return isSuperAdmin() ||
+        (isAuthenticated() &&
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN'] &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ativo == true);
     }
 
     function hasRequiredFields(fields) {
@@ -51,7 +55,8 @@ service cloud.firestore {
     // Rules
     // ===============================================================
     match /clients/{clientId} {
-      allow get, list: if isAdmin() || isAuthenticated();
+      // Leitura pública: necessária para busca por telefone no fluxo do cliente
+      allow get, list: if true;
       allow create: if isValidClient(request.resource.data) &&
         hasRequiredFields(['nome', 'telefone', 'totalVisitas', 'tempoMedio', 'dataCadastro', 'ativo']) &&
         hasOnlyAllowedFields(['nome', 'telefone', 'dataNascimento', 'totalVisitas', 'tempoMedio', 'dataCadastro', 'ativo']) &&
@@ -63,12 +68,14 @@ service cloud.firestore {
     }
 
     match /services/{serviceId} {
-      allow get, list: if isAuthenticated();
+      // Leitura pública: cliente precisa ver os serviços disponíveis
+      allow get, list: if true;
       allow write: if isAdmin();
     }
 
     match /queue/{queueId} {
-      allow get, list: if isAuthenticated();
+      // Leitura pública: cliente acompanha status da fila e do seu ticket
+      allow get, list: if true;
       allow create: if isValidQueueItem(request.resource.data) &&
         hasRequiredFields(['posicao', 'clienteId', 'clienteNome', 'servicos', 'servicosIds',
                            'tempoEstimado', 'horaPrevista', 'status', 'horaEntrada', 'data', 'telefone', 'manual']) &&
@@ -86,9 +93,9 @@ service cloud.firestore {
     }
 
     match /config/{docId} {
-      allow get: if isAuthenticated();  // Clientes precisam ler status da agenda
+      // Leitura pública: cliente precisa ver configuração e status da barbearia
+      allow get, list: if true;
       allow write, delete: if isAdmin();
-      allow list: if isAdmin();
     }
 
     match /users/{userId} {

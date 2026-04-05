@@ -43,7 +43,14 @@
       "Bash(/Users/richelcalazans/barbearia-smartqueue/.env.example:*)",
       "Bash(git commit:*)",
       "Bash(git tag:*)",
-      "Bash(npx firebase:*)"
+      "Bash(npx firebase:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(curl -s \"https://api.github.com/repos/FirebaseExtended/action-hosting-deploy/tags?per_page=10\")",
+      "Bash(gh run:*)",
+      "Bash(gh secret:*)",
+      "WebFetch(domain:ibb.co)",
+      "Bash(npx vite:*)",
+      "Bash(find /Users/richelcalazans/barbearia-smartqueue -name *sw* -o -name *service-worker* -o -name *manifest*)"
     ]
   }
 }
