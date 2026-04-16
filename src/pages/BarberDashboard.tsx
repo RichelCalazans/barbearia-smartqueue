@@ -1,39 +1,33 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Scissors,
   User,
-  Phone,
-  CheckCircle2,
-  XCircle,
   Clock,
   AlertCircle,
   Play,
-  Pause,
   Check,
   UserMinus,
   Lock,
-  Unlock,
   TrendingUp,
   Users,
   Timer as TimerIcon,
   Settings,
   Calendar,
-  Save,
   UserPlus,
   Shield,
-  ShieldOff,
   Mail,
   Plus,
   Pencil,
   Trash2,
-  X,
-  MessageCircle
+  MessageCircle,
 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
 import { Timer } from '../components/Timer';
+import { BarberStatusBanner } from '../components/BarberStatusBanner';
 import { Skeleton } from '../components/Skeleton';
 import { ScissorsLoading } from '../components/ScissorsLoading';
 import { QueueService } from '../services/QueueService';
@@ -44,14 +38,19 @@ import { AnalyticsService } from '../services/AnalyticsService';
 import { UserService } from '../services/UserService';
 import { useQueue } from '../hooks/useQueue';
 import { useAuth } from '../hooks/useAuth';
-import { QueueItem, AppConfig, AppState, AppUser, UserRole } from '../types';
+import { QueueItem, AppConfig, AppState, AppUser, UserRole, BarberStatus } from '../types';
 import { cn } from '../utils';
 import { MetricsPage } from './MetricsPage';
 import { ClientsPage } from './ClientsPage';
 import { BottomNavigation, AdminTab } from '../components/BottomNavigation';
 import { ResetEstimativasModal } from '../components/ResetEstimativasModal';
+import { DelayAlertBanner } from '../components/DelayAlertBanner';
+import { AgendaControls } from '../components/AgendaControls';
+import { BarberStatusControls } from '../components/BarberStatusControls';
+import { SettingsForm } from '../components/SettingsForm';
 
 export function BarberDashboard() {
+  const navigate = useNavigate();
   const { user, isAdmin, isSuperAdmin, hasPermission, appUser, loading: authLoading, signOut } = useAuth();
   const today = new Date().toISOString().split('T')[0];
   const [selectedQueueDate, setSelectedQueueDate] = useState<string>(today);
@@ -78,6 +77,8 @@ export function BarberDashboard() {
   const [editingService, setEditingService] = useState<any | null>(null);
   const [newService, setNewService] = useState({ nome: '', tempoBase: 30, preco: 0 });
   const [serviceError, setServiceError] = useState<string | null>(null);
+  const [delayMinutes, setDelayMinutes] = useState<number>(0);
+  const [showDelayAlert, setShowDelayAlert] = useState<boolean>(false);
   const [skipPauseConfirm, setSkipPauseConfirm] = useState<boolean>(() => {
     return localStorage.getItem('sq_skip_pause_confirm') === 'true';
   });
@@ -141,6 +142,93 @@ export function BarberDashboard() {
     if (!config) return;
     QueueService.recalculateQueue(config);
   }, [config, state?.agendaPausada, state?.tempoRetomada]);
+
+  // Recalculate queue when a waiting client disappears (cancel/absent)
+  // Uses waiting.length as a trigger — when it decreases, we know someone left
+  // the queue without being served, and downstream predictions need refreshing.
+  const prevWaitingLengthRef = React.useRef<number>(waiting.length);
+  useEffect(() => {
+    if (!config) return;
+    if (waiting.length < prevWaitingLengthRef.current) {
+      QueueService.recalculateQueue(config);
+    }
+    prevWaitingLengthRef.current = waiting.length;
+  }, [waiting.length, config]);
+
+  // Auto-update barber status based on queue state
+  useEffect(() => {
+    if (!state) return;
+
+    const updateBarberStatus = async () => {
+      const currentStatus = state.barberStatus;
+
+      // If agenda is closed, set to FILA_FECHADA
+      if (!state.agendaAberta) {
+        if (currentStatus !== 'FILA_FECHADA') {
+          await ConfigService.setBarberStatus('FILA_FECHADA');
+        }
+        return;
+      }
+
+      // If agenda is paused, set to EM_PAUSA
+      if (state.agendaPausada) {
+        if (currentStatus !== 'EM_PAUSA') {
+          await ConfigService.setBarberStatus('EM_PAUSA');
+        }
+        return;
+      }
+
+      // If there's a client in service, set to EM_CORTE
+      if (inService) {
+        if (currentStatus !== 'EM_CORTE') {
+          await ConfigService.setBarberStatus('EM_CORTE');
+        }
+      } else if (waiting.length === 0) {
+        // No clients in queue, waiting for client
+        if (currentStatus !== 'AGUARDANDO_CLIENTE') {
+          await ConfigService.setBarberStatus('AGUARDANDO_CLIENTE');
+        }
+      }
+    };
+
+    updateBarberStatus();
+  }, [state?.agendaAberta, state?.agendaPausada, inService, waiting.length]);
+
+  // Delay detection and stopwatch
+  useEffect(() => {
+    if (!inService || !config) {
+      setDelayMinutes(0);
+      setShowDelayAlert(false);
+      return;
+    }
+
+    const checkDelay = () => {
+      const startTime = inService.horaChamada || Date.now();
+      const elapsed = Date.now() - startTime;
+      const estimatedMs = inService.tempoEstimado * 60 * 1000;
+      const overtime = elapsed - estimatedMs;
+
+      if (overtime > 0) {
+        const minutes = Math.ceil(overtime / 60000);
+        setDelayMinutes(minutes);
+
+        // Start delay alert if not already started
+        if (!state?.delayAlertStartedAt) {
+          ConfigService.setDelayAlert(true);
+          setShowDelayAlert(true);
+        } else {
+          setShowDelayAlert(true);
+        }
+      } else {
+        setDelayMinutes(0);
+        setShowDelayAlert(false);
+      }
+    };
+
+    checkDelay();
+    const interval = setInterval(checkDelay, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, [inService, config, state?.delayAlertStartedAt]);
 
   const handleAction = async () => {
     if (!modalType || !config) return;
@@ -245,6 +333,41 @@ export function BarberDashboard() {
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
+  };
+
+  const handleBarberStatusChange = async (status: BarberStatus) => {
+    try {
+      await ConfigService.setBarberStatus(status);
+    } catch (err) {
+      console.error('Error updating barber status:', err);
+    }
+  };
+
+  const handleDelayAlertContinue = async () => {
+    // Continue current service, dismiss alert
+    setShowDelayAlert(false);
+  };
+
+  const handleDelayAlertCallNext = async () => {
+    // Finalize current service (mark as complete) and call next
+    if (inService && waiting.length > 0) {
+      setSubmitting(true);
+      try {
+        // Finalize current
+        if (config) {
+          await AttendanceService.finalizeAttendance(inService, config, user?.email || '');
+        }
+        // Call next
+        await QueueService.updateStatus(waiting[0].id, 'EM_ATENDIMENTO');
+        setShowDelayAlert(false);
+        setDelayMinutes(0);
+      } catch (err) {
+        console.error('Error handling delay alert:', err);
+        setError('Erro ao chamar próximo cliente.');
+      } finally {
+        setSubmitting(false);
+      }
+    }
   };
 
   const openManageUsers = async () => {
@@ -376,7 +499,7 @@ export function BarberDashboard() {
   if (authLoading || queueLoading) return <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center"><ScissorsLoading /></div>;
 
   if (!user) {
-    window.location.href = '/login';
+    // RequireAdmin guard should handle this, but keep a safety net.
     return null;
   }
 
@@ -386,7 +509,7 @@ export function BarberDashboard() {
         <Lock className="h-12 w-12 text-[#EF4444]" />
         <h1 className="text-2xl font-bold text-[#F1F5F9]">Acesso Negado</h1>
         <p className="text-[#64748B]">Sua conta ({user.email}) não tem permissão de administrador.</p>
-        <Button onClick={() => window.location.href = '/login'}>Fazer login com outra conta</Button>
+        <Button onClick={() => navigate('/login')}>Fazer login com outra conta</Button>
       </div>
     );
   }
@@ -477,6 +600,16 @@ export function BarberDashboard() {
         <div className="text-[10px] text-[#64748B]/30 font-mono uppercase tracking-widest text-center">
           Status: {state?.agendaAberta ? 'Aberta' : 'Fechada'} | Doc: {state ? 'Existe' : 'Nulo'}
         </div>
+
+        {showDelayAlert && inService && delayMinutes > 0 && (
+          <DelayAlertBanner
+            delayMinutes={delayMinutes}
+            submitting={submitting}
+            callNextDisabled={waiting.length === 0 || submitting}
+            onContinue={handleDelayAlertContinue}
+            onCallNext={handleDelayAlertCallNext}
+          />
+        )}
 
         {/* Current Service Section */}
         <section className="space-y-4">
@@ -628,73 +761,32 @@ export function BarberDashboard() {
           </div>
         </section>
 
-        {/* Agenda Controls */}
-        <section className="pt-8 border-t border-[#1E1E1E]">
-          <Card className="bg-gradient-to-br from-[#111111] to-[#0A0A0A] border-brand/10">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="space-y-1 text-center md:text-left flex-1">
-                <h3 className="text-lg font-bold text-[#F1F5F9]">Controle da Agenda</h3>
-                <p className="text-sm text-[#64748B]">
-                  {state?.agendaPausada
-                    ? `⏸️ Pausada ${timeRemaining > 0 ? `- Retomando em ${Math.floor(timeRemaining / 60)}m ${timeRemaining % 60}s` : 'Nenhum novo cliente pode entrar.'}`
-                    : state?.agendaAberta
-                    ? '✅ A agenda está aberta e recebendo novos clientes.'
-                    : '❌ A agenda está fechada. Clientes não podem entrar na fila.'}
-                </p>
-              </div>
-              <div className="flex gap-2 flex-wrap md:flex-nowrap justify-center md:justify-end">
-                {!state?.agendaAberta && (
-                  <Button
-                    variant="primary"
-                    className="h-12 px-6 font-bold"
-                    onClick={() => {
-                      setModalType('OPEN_AGENDA');
-                      setIsModalOpen(true);
-                    }}
-                  >
-                    <Unlock className="mr-2 h-4 w-4" /> Abrir
-                  </Button>
-                )}
-                {state?.agendaAberta && (
-                  <>
-                    <Button
-                      variant="outline"
-                      className="h-12 px-6 font-bold"
-                      onClick={() => {
-                        if (!state.agendaPausada && skipPauseConfirm) {
-                          setModalType('PAUSE_TIME');
-                        } else {
-                          setModalType(state.agendaPausada ? 'RESUME_AGENDA' : 'PAUSE_AGENDA');
-                        }
-                        setIsModalOpen(true);
-                      }}
-                    >
-                      {state.agendaPausada ? (
-                        <><Play className="mr-2 h-4 w-4" /> Retomar</>
-                      ) : (
-                        <><Pause className="mr-2 h-4 w-4" /> Pausar</>
-                      )}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      className="h-12 px-6 font-bold"
-                      onClick={() => {
-                        if (waiting.length > 0) {
-                          setModalType('CLOSE_AGENDA_CHOICE');
-                        } else {
-                          setModalType('CLOSE_AGENDA');
-                        }
-                        setIsModalOpen(true);
-                      }}
-                    >
-                      <Lock className="mr-2 h-4 w-4" /> Fechar
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-          </Card>
-        </section>
+        <AgendaControls
+          agendaAberta={!!state?.agendaAberta}
+          agendaPausada={!!state?.agendaPausada}
+          timeRemaining={timeRemaining}
+          onOpen={() => {
+            setModalType('OPEN_AGENDA');
+            setIsModalOpen(true);
+          }}
+          onPauseToggle={() => {
+            if (!state?.agendaPausada && skipPauseConfirm) {
+              setModalType('PAUSE_TIME');
+            } else {
+              setModalType(state?.agendaPausada ? 'RESUME_AGENDA' : 'PAUSE_AGENDA');
+            }
+            setIsModalOpen(true);
+          }}
+          onClose={() => {
+            setModalType(waiting.length > 0 ? 'CLOSE_AGENDA_CHOICE' : 'CLOSE_AGENDA');
+            setIsModalOpen(true);
+          }}
+        />
+
+        <BarberStatusControls
+          currentStatus={state?.barberStatus}
+          onChange={handleBarberStatusChange}
+        />
           </main>
           )}
 
@@ -886,157 +978,7 @@ export function BarberDashboard() {
             )}
           </div>
         ) : modalType === 'SETTINGS' && tempConfig ? (
-          <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-            <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Geral</p>
-
-            {/* Nome da Barbearia */}
-            <div className="space-y-2">
-              <label className="text-xs text-[#64748B]">Nome da Barbearia</label>
-              <input
-                type="text"
-                placeholder="Ex: Barbearia Premium"
-                value={tempConfig.SHOP_NAME || ''}
-                onChange={e => setTempConfig({ ...tempConfig, SHOP_NAME: e.target.value })}
-                className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand"
-              />
-            </div>
-
-            <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Aparência</p>
-
-            {/* Logo URL */}
-            <div className="space-y-2">
-              <label className="text-xs text-[#64748B]">URL do Logo</label>
-              <input
-                type="url"
-                placeholder="https://exemplo.com/logo.png"
-                value={tempConfig.LOGO_URL || ''}
-                onChange={e => setTempConfig({ ...tempConfig, LOGO_URL: e.target.value })}
-                className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand"
-              />
-              <p className="text-[10px] text-[#64748B]">Cole a URL de uma imagem (PNG, JPG)</p>
-            </div>
-
-            {/* Cores */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Principal</label>
-                <input
-                  type="color"
-                  value={tempConfig.PRIMARY_COLOR || '#00D4A5'}
-                  onChange={e => setTempConfig({ ...tempConfig, PRIMARY_COLOR: e.target.value })}
-                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-brand transition-colors"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Fundo</label>
-                <input
-                  type="color"
-                  value={tempConfig.SECONDARY_COLOR || '#1A1A1A'}
-                  onChange={e => setTempConfig({ ...tempConfig, SECONDARY_COLOR: e.target.value })}
-                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-brand transition-colors"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Destaque</label>
-                <input
-                  type="color"
-                  value={tempConfig.ACCENT_COLOR || '#0A0A0A'}
-                  onChange={e => setTempConfig({ ...tempConfig, ACCENT_COLOR: e.target.value })}
-                  className="w-full h-12 rounded-xl cursor-pointer border-2 border-[#1E1E1E] hover:border-brand transition-colors"
-                />
-              </div>
-            </div>
-
-<div className="flex items-center justify-between p-4 rounded-xl bg-[#1A1A1A] border border-[#1E1E1E]">
-              <div className="space-y-1">
-                <p className="text-sm font-bold text-[#F1F5F9]">Abertura Automática</p>
-                <p className="text-xs text-[#64748B]">Abrir e fechar a fila baseado no horário</p>
-              </div>
-              <button 
-                onClick={() => setTempConfig({ ...tempConfig, AUTO_OPEN_CLOSE: !tempConfig.AUTO_OPEN_CLOSE })}
-                className={cn(
-                  "w-12 h-6 rounded-full transition-colors relative",
-                  tempConfig.AUTO_OPEN_CLOSE ? "bg-brand" : "bg-[#334155]"
-                )}
-              >
-                <div className={cn(
-                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
-                  tempConfig.AUTO_OPEN_CLOSE ? "left-7" : "left-1"
-                )} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-[#64748B] ml-1">Agenda Semanal</p>
-              {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((dayName, index) => {
-                const schedule = tempConfig.WEEKLY_SCHEDULE?.find(s => s.day === index) || { day: index, enabled: false, openTime: '09:00', closeTime: '19:00' };
-                const today = new Date();
-                const targetDate = new Date(today);
-                targetDate.setDate(today.getDate() + ((index - today.getDay() + 7) % 7 || 7));
-                const dateStr = targetDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-                return (
-                  <div key={index} className="p-4 rounded-xl bg-[#111111] border border-[#1E1E1E] space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-bold text-[#F1F5F9]">{dayName}</p>
-                        <p className="text-xs text-[#64748B]">{dateStr}</p>
-                      </div>
-                      <button 
-                        onClick={() => {
-                          const newSchedule = [...(tempConfig.WEEKLY_SCHEDULE || [])];
-                          const idx = newSchedule.findIndex(s => s.day === index);
-                          if (idx >= 0) {
-                            newSchedule[idx] = { ...newSchedule[idx], enabled: !newSchedule[idx].enabled };
-                          } else {
-                            newSchedule.push({ day: index, enabled: true, openTime: '09:00', closeTime: '19:00' });
-                          }
-                          setTempConfig({ ...tempConfig, WEEKLY_SCHEDULE: newSchedule });
-                        }}
-                        className={cn(
-                          "px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors",
-                          schedule.enabled ? "bg-brand/10 text-brand" : "bg-[#334155]/20 text-[#64748B]"
-                        )}
-                      >
-                        {schedule.enabled ? 'Ativo' : 'Inativo'}
-                      </button>
-                    </div>
-                    {schedule.enabled && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Abertura</label>
-                          <input 
-                            type="time" 
-                            value={schedule.openTime}
-                            onChange={(e) => {
-                              const newSchedule = [...(tempConfig.WEEKLY_SCHEDULE || [])];
-                              const idx = newSchedule.findIndex(s => s.day === index);
-                              newSchedule[idx] = { ...newSchedule[idx], openTime: e.target.value };
-                              setTempConfig({ ...tempConfig, WEEKLY_SCHEDULE: newSchedule });
-                            }}
-                            className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-brand/50"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Fechamento</label>
-                          <input 
-                            type="time" 
-                            value={schedule.closeTime}
-                            onChange={(e) => {
-                              const newSchedule = [...(tempConfig.WEEKLY_SCHEDULE || [])];
-                              const idx = newSchedule.findIndex(s => s.day === index);
-                              newSchedule[idx] = { ...newSchedule[idx], closeTime: e.target.value };
-                              setTempConfig({ ...tempConfig, WEEKLY_SCHEDULE: newSchedule });
-                            }}
-                            className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg px-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-brand/50"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <SettingsForm tempConfig={tempConfig} onChange={setTempConfig} />
         ) : modalType === 'PAUSE_TIME' ? (
           <div className="space-y-4">
             <p className="text-[#64748B] text-sm mb-6">Selecione quanto tempo deseja pausar a agenda:</p>

@@ -45,6 +45,12 @@ export class QueueService {
       const snapshot = await getDocs(q);
       const currentQueue = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as QueueItem));
 
+      // Prevent duplicate: same client already waiting/being served on this date
+      const existing = currentQueue.find(item => item.clienteId === client.id);
+      if (existing) {
+        throw new Error('Você já está na fila para este dia.');
+      }
+
       if (currentQueue.length >= config.MAX_DAILY_CLIENTS) {
         throw new Error('Fila cheia para este dia.');
       }

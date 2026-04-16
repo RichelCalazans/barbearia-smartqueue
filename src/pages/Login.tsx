@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Scissors, LogIn, AlertCircle } from 'lucide-react';
 import { Card } from '../components/Card';
@@ -7,12 +8,22 @@ import { Input } from '../components/Input';
 import { signIn, signInWithGoogle } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 
+const GOOGLE_LOGIN_TIMEOUT_MS = 10_000;
+
 export function Login() {
+  const navigate = useNavigate();
   const { user, isAdmin, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [googleTimedOut, setGoogleTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (user && isAdmin) {
+      navigate('/barber', { replace: true });
+    }
+  }, [user, isAdmin, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,10 +49,19 @@ export function Login() {
   const handleGoogleLogin = async () => {
     setSubmitting(true);
     setError(null);
+    setGoogleTimedOut(false);
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('google-login-timeout')), GOOGLE_LOGIN_TIMEOUT_MS);
+    });
+
     try {
-      await signInWithGoogle();
+      await Promise.race([signInWithGoogle(), timeoutPromise]);
     } catch (err: any) {
-      if (err.code !== 'auth/popup-closed-by-user') {
+      if (err.message === 'google-login-timeout') {
+        setGoogleTimedOut(true);
+        setError('O login com Google demorou demais. Tente novamente.');
+      } else if (err.code !== 'auth/popup-closed-by-user') {
         setError(err.message || 'Erro ao entrar com Google');
       }
     } finally {
@@ -50,7 +70,6 @@ export function Login() {
   };
 
   if (user && isAdmin) {
-    window.location.href = '/barber';
     return null;
   }
 
@@ -136,13 +155,13 @@ export function Login() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              Entrar com Google
+              {googleTimedOut ? 'Tentar novamente com Google' : 'Entrar com Google'}
             </Button>
           </form>
         </Card>
 
         <footer className="pt-8">
-          <Button variant="ghost" className="text-[#64748B]" onClick={() => window.location.href = '/'}>
+          <Button variant="ghost" className="text-[#64748B]" onClick={() => navigate('/')}>
             Voltar para Visão do Cliente
           </Button>
         </footer>

@@ -47,13 +47,21 @@ export class TimePredictorService {
   }
 
   /**
-   * Adds minutes to a time string (HH:MM).
+   * Adds minutes to a time string (HH:MM). Falls back to 00:00 when the input
+   * is malformed, so downstream rendering never shows NaN:NaN.
    */
   static addMinutes(timeStr: string, minutesToAdd: number): string {
-    const [hours, mins] = timeStr.split(':').map(Number);
-    const totalMinutes = hours * 60 + mins + minutesToAdd;
-    const newHours = Math.floor(totalMinutes / 60) % 24;
-    const newMins = totalMinutes % 60;
+    const validFormat = typeof timeStr === 'string' && /^\d{2}:\d{2}$/.test(timeStr);
+    const base = validFormat ? timeStr : '00:00';
+    const [hours, mins] = base.split(':').map(Number);
+    if (Number.isNaN(hours) || Number.isNaN(mins) || hours > 23 || mins > 59) {
+      return '00:00';
+    }
+    const safeMinutes = Number.isFinite(minutesToAdd) ? Math.round(minutesToAdd) : 0;
+    const totalMinutes = hours * 60 + mins + safeMinutes;
+    const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+    const newHours = Math.floor(normalized / 60);
+    const newMins = normalized % 60;
     return `${newHours.toString().padStart(2, '0')}:${newMins.toString().padStart(2, '0')}`;
   }
 }

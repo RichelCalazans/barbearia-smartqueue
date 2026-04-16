@@ -12,6 +12,8 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // IMPORTANT: keep in sync with src/config/admin.ts (SUPER_ADMIN_EMAILS).
+    // Firestore rules cannot import TS, so this list must be mirrored manually.
     function isSuperAdmin() {
       return isAuthenticated() &&
         (request.auth.token.email == "richelcalazans6@gmail.com" ||

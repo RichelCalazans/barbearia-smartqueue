@@ -1,5 +1,7 @@
 export type QueueStatus = 'AGUARDANDO' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'CANCELADO' | 'AUSENTE';
 
+export type BarberStatus = 'AGUARDANDO_CLIENTE' | 'EM_CORTE' | 'EM_PAUSA' | 'FILA_FECHADA';
+
 export interface Client {
   id: string;
   nome: string;
@@ -85,6 +87,8 @@ export interface AppState {
   agendaPausada: boolean;
   dataAbertura: string | null;
   tempoRetomada?: number | null; // timestamp when to auto-resume
+  barberStatus?: BarberStatus; // current barber status visible to clients
+  delayAlertStartedAt?: number | null; // timestamp when delay alert started
 }
 
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'BARBEIRO' | 'RECEPCIONISTA';

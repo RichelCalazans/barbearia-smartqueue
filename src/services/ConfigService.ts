@@ -1,12 +1,13 @@
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
+import {
+  doc,
+  getDoc,
+  setDoc,
   updateDoc,
   onSnapshot
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { AppConfig, AppState } from '../types';
+import { AppConfig, AppState, BarberStatus } from '../types';
+import { DEFAULT_BARBER_EMAIL } from '../config/admin';
 
 export class ConfigService {
   private static SETTINGS_PATH = 'config/settings';
@@ -19,7 +20,7 @@ export class ConfigService {
     MAX_DAILY_CLIENTS: 30,
     OPENING_TIME: '09:00',
     CLOSING_TIME: '19:00',
-    BARBER_EMAIL: 'richelcalazans6@gmail.com',
+    BARBER_EMAIL: DEFAULT_BARBER_EMAIL,
     BARBER_NAME: 'Barbeiro',
     SHOP_NAME: 'Barbearia SmartQueue',
     AUTO_REFRESH_SECONDS: 12,
@@ -178,6 +179,32 @@ export class ConfigService {
       await updateDoc(doc(db, this.SETTINGS_PATH), config);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, this.SETTINGS_PATH);
+    }
+  }
+
+  /**
+   * Updates the barber status.
+   */
+  static async setBarberStatus(status: BarberStatus): Promise<void> {
+    try {
+      await setDoc(doc(db, this.STATE_PATH), {
+        barberStatus: status,
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, this.STATE_PATH);
+    }
+  }
+
+  /**
+   * Starts or stops the delay alert timer.
+   */
+  static async setDelayAlert(active: boolean): Promise<void> {
+    try {
+      await setDoc(doc(db, this.STATE_PATH), {
+        delayAlertStartedAt: active ? Date.now() : null,
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, this.STATE_PATH);
     }
   }
 }

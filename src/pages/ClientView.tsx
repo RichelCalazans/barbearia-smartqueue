@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, CheckCircle2, XCircle, Clock, AlertCircle, Scissors, Calendar } from 'lucide-react';
 import { Card } from '../components/Card';
@@ -6,6 +7,7 @@ import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { ServiceChip } from '../components/ServiceChip';
 import { ScissorsLoading } from '../components/ScissorsLoading';
+import { BarberStatusBanner } from '../components/BarberStatusBanner';
 import { ClientService } from '../services/ClientService';
 import { NotificationService } from '../services/NotificationService';
 import { ServiceService } from '../services/ServiceService';
@@ -13,8 +15,14 @@ import { QueueService } from '../services/QueueService';
 import { ConfigService } from '../services/ConfigService';
 import { useQueue } from '../hooks/useQueue';
 import { useApp } from '../contexts/AppContext';
-import { Service, QueueItem, AppConfig, AppState } from '../types';
+import { Service, QueueItem, AppConfig, AppState, BarberStatus } from '../types';
 import { getAvailableDates, getScheduleForDate, formatDateDisplay } from '../utils';
+import {
+  validateNome,
+  validateTelefone,
+  validateDataNascimento,
+  validateDataAgendamento,
+} from '../validation';
 
 function ShopLogo({ url, name, invert }: { url?: string; name: string; invert?: boolean }) {
   const [failed, setFailed] = useState(false);
@@ -38,6 +46,7 @@ function ShopLogo({ url, name, invert }: { url?: string; name: string; invert?: 
 }
 
 export function ClientView() {
+  const navigate = useNavigate();
   const { config: appConfig } = useApp();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -58,6 +67,7 @@ export function ClientView() {
   const [availableDates, setAvailableDates] = useState<{ date: string; label: string; disabled: boolean; remainingSlots?: number }[]>([]);
   const [checkingDates, setCheckingDates] = useState(false);
   const [selectedDateInfo, setSelectedDateInfo] = useState<{ date: string; label: string; schedule?: any } | null>(null);
+  const [barberDelayMinutes, setBarberDelayMinutes] = useState<number>(0);
 
   const { queue } = useQueue();
 
@@ -155,6 +165,32 @@ export function ClientView() {
     return unsub;
   }, [ticketId]);
 
+  // Calculate barber delay when there's a client in service
+  useEffect(() => {
+    const inService = queue.find(item => item.status === 'EM_ATENDIMENTO');
+    if (!inService || !inService.horaChamada) {
+      setBarberDelayMinutes(0);
+      return;
+    }
+
+    const calculateDelay = () => {
+      const startTime = inService.horaChamada || Date.now();
+      const elapsed = Date.now() - startTime;
+      const estimatedMs = inService.tempoEstimado * 60 * 1000;
+      const overtime = elapsed - estimatedMs;
+
+      if (overtime > 0) {
+        setBarberDelayMinutes(Math.ceil(overtime / 60000));
+      } else {
+        setBarberDelayMinutes(0);
+      }
+    };
+
+    calculateDelay();
+    const interval = setInterval(calculateDelay, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, [queue]);
+
   const handleDateNascimentoChange = (value: string) => {
     // Remove non-numeric characters
     let cleaned = value.replace(/\D/g, '');
@@ -185,7 +221,11 @@ export function ClientView() {
 
   const handleCheckClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!telefone || telefone.length < 10) return;
+    const telefoneError = validateTelefone(telefone);
+    if (telefoneError) {
+      setError(telefoneError);
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -214,8 +254,35 @@ export function ClientView() {
 
   const handleJoinQueue = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!nome || !telefone || selectedServices.length === 0 || !config) {
-      setError('Por favor, preencha todos os campos e selecione ao menos um serviço.');
+    if (!config) {
+      setError('Configuração indisponível. Recarregue a página.');
+      return;
+    }
+    if (selectedServices.length === 0) {
+      setError('Selecione ao menos um serviço.');
+      return;
+    }
+    const nomeError = validateNome(nome);
+    if (nomeError) {
+      setError(nomeError);
+      return;
+    }
+    const telefoneError = validateTelefone(telefone);
+    if (telefoneError) {
+      setError(telefoneError);
+      return;
+    }
+    // Birth date is only required for new clients (step 3)
+    if (step === 3) {
+      const birthError = validateDataNascimento(dataNascimento);
+      if (birthError) {
+        setError(birthError);
+        return;
+      }
+    }
+    const dateError = validateDataAgendamento(dataAgendamento);
+    if (dateError) {
+      setError(dateError);
       return;
     }
 
@@ -253,6 +320,8 @@ export function ClientView() {
     setCancelling(true);
     try {
       await QueueService.updateStatus(activeTicket.id, 'CANCELADO');
+      // Recalculation of other tickets happens on the barber dashboard listener
+      // (firestore rules block non-admin from updating other tickets' horaPrevista).
       localStorage.removeItem('sq_ticket_id');
       setTicketId(null);
 
@@ -291,6 +360,16 @@ export function ClientView() {
             {isInService ? 'É a sua vez!' : 'Você está na fila'}
           </p>
         </header>
+
+        {/* Barber Status Banner */}
+        {state?.barberStatus && (
+          <div className="max-w-md mx-auto mb-4">
+            <BarberStatusBanner
+              status={state.barberStatus}
+              delayMinutes={barberDelayMinutes}
+            />
+          </div>
+        )}
 
         <main className="max-w-md mx-auto space-y-4">
           {error && (
@@ -760,7 +839,7 @@ export function ClientView() {
             Ao entrar na fila, você concorda em receber notificações sobre o status do seu atendimento.
           </p>
           <div className="pt-4">
-            <Button variant="ghost" size="sm" className="text-[#64748B]/50 hover:text-brand" onClick={() => window.location.href = '/login'}>
+            <Button variant="ghost" size="sm" className="text-[#64748B]/50 hover:text-brand" onClick={() => navigate('/login')}>
               Acesso do Barbeiro
             </Button>
           </div>

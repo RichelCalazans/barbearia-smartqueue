@@ -3,15 +3,14 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, signIn, signOut } from '../firebase';
 import { UserService } from '../services/UserService';
 import { AppUser, Permission, UserRole } from '../types';
-
-const SUPER_ADMIN_EMAILS = ['richelcalazans6@gmail.com', 'teste@teste.com'];
+import { isSuperAdminEmail } from '../config/admin';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const isSuperAdmin = user?.email ? SUPER_ADMIN_EMAILS.includes(user.email) : false;
+  const isSuperAdmin = isSuperAdminEmail(user?.email);
 
   const isAdmin = isSuperAdmin || appUser?.role === 'ADMIN' || appUser?.role === 'SUPER_ADMIN';
 
@@ -31,7 +30,7 @@ export function useAuth() {
       setUser(firebaseUser);
       try {
         if (firebaseUser?.email) {
-          if (SUPER_ADMIN_EMAILS.includes(firebaseUser.email)) {
+          if (isSuperAdminEmail(firebaseUser.email)) {
             setAppUser({
               id: firebaseUser.uid,
               email: firebaseUser.email,
