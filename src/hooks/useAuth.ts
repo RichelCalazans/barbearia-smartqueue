@@ -13,6 +13,7 @@ export function useAuth() {
   const isSuperAdmin = isSuperAdminEmail(user?.email);
 
   const isAdmin = isSuperAdmin || appUser?.role === 'ADMIN' || appUser?.role === 'SUPER_ADMIN';
+  const canAccessDashboard = isSuperAdmin || (appUser?.permissions?.includes('manage_queue') ?? false);
 
   const hasPermission = (permission: Permission): boolean => {
     if (isSuperAdmin) return true;
@@ -65,6 +66,7 @@ export function useAuth() {
     isAuthenticated: !!user,
     isAdmin,
     isSuperAdmin,
+    canAccessDashboard,
     hasPermission,
     hasRole,
   };

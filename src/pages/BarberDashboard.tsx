@@ -193,7 +193,7 @@ function SortableWaitingItem({
 
 export function BarberDashboard() {
   const navigate = useNavigate();
-  const { user, isAdmin, isSuperAdmin, loading: authLoading, signOut } = useAuth();
+  const { user, isAdmin, isSuperAdmin, canAccessDashboard, hasPermission, loading: authLoading, signOut } = useAuth();
   const today = new Date().toISOString().split('T')[0];
   const [selectedQueueDate, setSelectedQueueDate] = useState<string>(today);
   const { queue, waiting, inService, loading: queueLoading } = useQueue(selectedQueueDate);
@@ -240,6 +240,9 @@ export function BarberDashboard() {
   const [skipPauseConfirm, setSkipPauseConfirm] = useState<boolean>(() => {
     return localStorage.getItem('sq_skip_pause_confirm') === 'true';
   });
+  const canManageServices = hasPermission('manage_services');
+  const canManageUsers = hasPermission('manage_users');
+  const canManageSettings = hasPermission('manage_settings');
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
@@ -257,19 +260,20 @@ export function BarberDashboard() {
   }, [isAdmin, config, state]);
 
   useEffect(() => {
-    if (isAdmin) {
-      ConfigService.initialize().catch(err => {
-        console.error('Config init error:', err);
-        setError('Erro ao inicializar configurações. Verifique sua conexão.');
-      });
-      ServiceService.initialize().catch(err => {
-        console.error('Service init error:', err);
-      });
+    if (canAccessDashboard) {
+      if (isAdmin) {
+        ConfigService.initialize().catch(err => {
+          console.error('Config init error:', err);
+          setError('Erro ao inicializar configurações. Verifique sua conexão.');
+        });
+        ServiceService.initialize().catch(err => {
+          console.error('Service init error:', err);
+        });
+      }
       ServiceService.listActive().then(setAvailableServices).catch(err => {
         console.error('Service list error:', err);
       });
     }
-
     const unsubConfig = ConfigService.onConfigChange(setConfig);
     const unsubState = ConfigService.onStateChange(setState);
     
@@ -279,7 +283,7 @@ export function BarberDashboard() {
       unsubConfig();
       unsubState();
     };
-  }, [isAdmin]);
+  }, [canAccessDashboard, isAdmin]);
 
   // Auto-resume when pause time expires
   useEffect(() => {
@@ -824,12 +828,12 @@ export function BarberDashboard() {
     return null;
   }
 
-  if (!isAdmin) {
+  if (!canAccessDashboard) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] p-6 flex flex-col items-center justify-center text-center space-y-6">
         <Lock className="h-12 w-12 text-[#EF4444]" />
         <h1 className="text-2xl font-bold text-[#F1F5F9]">Acesso Negado</h1>
-        <p className="text-[#64748B]">Sua conta ({user.email}) não tem permissão de administrador.</p>
+        <p className="text-[#64748B]">Sua conta ({user.email}) não tem permissão para acessar o painel.</p>
         <Button onClick={() => navigate('/login')}>Fazer login com outra conta</Button>
       </div>
     );
@@ -851,29 +855,37 @@ export function BarberDashboard() {
             </div>
 
             <div className="hidden items-center gap-2 md:flex">
-              <Button variant="ghost" size="icon" onClick={openManageServices} title="Gerenciar serviços">
-                <Scissors className="h-5 w-5 text-[#64748B]" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={openManageUsers} title="Gerenciar usuários">
-                <UserPlus className="h-5 w-5 text-[#64748B]" />
-              </Button>
+              {canManageServices && (
+                <Button variant="ghost" size="icon" onClick={openManageServices} title="Gerenciar serviços">
+                  <Scissors className="h-5 w-5 text-[#64748B]" />
+                </Button>
+              )}
+              {canManageUsers && (
+                <Button variant="ghost" size="icon" onClick={openManageUsers} title="Gerenciar usuários">
+                  <UserPlus className="h-5 w-5 text-[#64748B]" />
+                </Button>
+              )}
               {isSuperAdmin && (
                 <Button variant="ghost" size="icon" onClick={() => { setModalType('RESET_ESTIMATIVAS'); setIsModalOpen(true); }} title="Estimativas de tempo">
                   <TimerIcon className="h-5 w-5 text-[#64748B]" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }} title="Configurações">
-                <Settings className="h-5 w-5 text-[#64748B]" />
-              </Button>
+              {canManageSettings && (
+                <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }} title="Configurações">
+                  <Settings className="h-5 w-5 text-[#64748B]" />
+                </Button>
+              )}
               <Button variant="ghost" size="icon" onClick={signOut} title="Sair">
                 <UserMinus className="h-5 w-5 text-[#64748B]" />
               </Button>
             </div>
 
             <div className="flex items-center gap-1 md:hidden">
-              <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }} title="Configurações">
-                <Settings className="h-4 w-4 text-[#64748B]" />
-              </Button>
+              {canManageSettings && (
+                <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }} title="Configurações">
+                  <Settings className="h-4 w-4 text-[#64748B]" />
+                </Button>
+              )}
               <Button variant="ghost" size="icon" onClick={signOut} title="Sair">
                 <UserMinus className="h-4 w-4 text-[#64748B]" />
               </Button>
@@ -881,12 +893,16 @@ export function BarberDashboard() {
           </div>
 
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:hidden">
-            <Button variant="ghost" size="icon" onClick={openManageServices} title="Gerenciar serviços" className="shrink-0 border border-[#1E1E1E] bg-[#111111]">
-              <Scissors className="h-4 w-4 text-[#64748B]" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={openManageUsers} title="Gerenciar usuários" className="shrink-0 border border-[#1E1E1E] bg-[#111111]">
-              <UserPlus className="h-4 w-4 text-[#64748B]" />
-            </Button>
+            {canManageServices && (
+              <Button variant="ghost" size="icon" onClick={openManageServices} title="Gerenciar serviços" className="shrink-0 border border-[#1E1E1E] bg-[#111111]">
+                <Scissors className="h-4 w-4 text-[#64748B]" />
+              </Button>
+            )}
+            {canManageUsers && (
+              <Button variant="ghost" size="icon" onClick={openManageUsers} title="Gerenciar usuários" className="shrink-0 border border-[#1E1E1E] bg-[#111111]">
+                <UserPlus className="h-4 w-4 text-[#64748B]" />
+              </Button>
+            )}
             {isSuperAdmin && (
               <Button variant="ghost" size="icon" onClick={() => { setModalType('RESET_ESTIMATIVAS'); setIsModalOpen(true); }} title="Estimativas de tempo" className="shrink-0 border border-[#1E1E1E] bg-[#111111]">
                 <TimerIcon className="h-4 w-4 text-[#64748B]" />

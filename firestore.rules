@@ -28,6 +28,14 @@ service cloud.firestore {
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ativo == true);
     }
 
+    function isQueueManager() {
+      return isSuperAdmin() ||
+        (isAuthenticated() &&
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN', 'BARBEIRO', 'RECEPCIONISTA'] &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ativo == true);
+    }
+
     function hasRequiredFields(fields) {
       return request.resource.data.keys().hasAll(fields);
     }
@@ -128,12 +136,13 @@ service cloud.firestore {
         request.resource.data.ativo == true &&
         (
           isAdmin() ||
+          isQueueManager() ||
           (
             request.resource.data.createdOrigin == 'CLIENT_SELF' &&
             request.resource.data.createdByBarber == false
           )
         );
-      allow update: if isAdmin() || isClientCompletionUpdate();
+      allow update: if isAdmin() || isQueueManager() || isClientCompletionUpdate();
       allow delete: if isAdmin();
     }
 
@@ -150,22 +159,25 @@ service cloud.firestore {
         hasRequiredFields(['posicao', 'clienteId', 'clienteNome', 'servicos', 'servicosIds',
                            'tempoEstimado', 'horaPrevista', 'status', 'horaEntrada', 'data', 'telefone', 'manual']) &&
         request.resource.data.status == 'AGUARDANDO';
-      allow update: if isAdmin() ||
+      allow update: if isQueueManager() ||
         (resource.data.status == 'AGUARDANDO' &&
          request.resource.data.status == 'CANCELADO' &&
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'horaFim']));
-      allow delete: if isAdmin();
+      allow delete: if isQueueManager();
     }
 
     match /history/{attendanceId} {
-      allow read: if isAdmin();
-      allow create, update, delete: if isAdmin();
+      allow read: if isQueueManager();
+      allow create: if isQueueManager();
+      allow update, delete: if isAdmin();
     }
 
     match /config/{docId} {
       // Leitura pública: cliente precisa ver configuração e status da barbearia
       allow get, list: if true;
-      allow write, delete: if isAdmin();
+      allow write: if (docId == 'state' && isQueueManager()) ||
+                   (docId == 'settings' && isAdmin());
+      allow delete: if isAdmin();
     }
 
     match /users/{userId} {

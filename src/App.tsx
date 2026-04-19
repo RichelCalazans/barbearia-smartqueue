@@ -15,7 +15,7 @@ import { AppProvider } from './contexts/AppContext';
 import { useAuth } from './hooks/useAuth';
 
 function RequireAdmin({ children }: { children: ReactNode }) {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, canAccessDashboard, loading } = useAuth();
 
   if (loading) {
     return (
@@ -25,7 +25,7 @@ function RequireAdmin({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!user || !canAccessDashboard) {
     return <Navigate to="/login" replace />;
   }
 

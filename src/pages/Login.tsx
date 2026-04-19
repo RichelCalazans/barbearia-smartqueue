@@ -12,7 +12,7 @@ const GOOGLE_LOGIN_TIMEOUT_MS = 10_000;
 
 export function Login() {
   const navigate = useNavigate();
-  const { user, isAdmin, loading } = useAuth();
+  const { user, canAccessDashboard, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -20,10 +20,10 @@ export function Login() {
   const [googleTimedOut, setGoogleTimedOut] = useState(false);
 
   useEffect(() => {
-    if (user && isAdmin) {
+    if (user && canAccessDashboard) {
       navigate('/barber', { replace: true });
     }
-  }, [user, isAdmin, navigate]);
+  }, [user, canAccessDashboard, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +69,7 @@ export function Login() {
     }
   };
 
-  if (user && isAdmin) {
+  if (user && canAccessDashboard) {
     return null;
   }
 
@@ -103,10 +103,10 @@ export function Login() {
               </div>
             )}
 
-            {user && !isAdmin && (
+            {user && !canAccessDashboard && (
               <div className="p-4 rounded-xl bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[#F59E0B] text-sm flex items-center gap-3 text-left">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                Sua conta ({user.email}) não tem permissão de administrador.
+                Sua conta ({user.email}) não tem permissão para acessar o painel.
               </div>
             )}
 
