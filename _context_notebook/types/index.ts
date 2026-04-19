@@ -2,23 +2,6 @@ export type QueueStatus = 'AGUARDANDO' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'CANCE
 
 export type BarberStatus = 'AGUARDANDO_CLIENTE' | 'EM_CORTE' | 'EM_PAUSA' | 'FILA_FECHADA';
 
-export type BarberStatusAction =
-  | 'SEM_CLIENTE_CHAMADO'
-  | 'CHAMOU_PROXIMO_CLIENTE'
-  | 'PAUSA_CONFIRMADA'
-  | 'FECHOU_FILA'
-  | 'FINALIZOU_ATENDIMENTO'
-  | 'ABRIU_AGENDA'
-  | 'RETOMOU_PAUSA'
-  | 'SINCRONIZACAO_SISTEMA'
-  | 'INICIALIZACAO';
-
-export interface BarberStatusHistoryEntry {
-  status: BarberStatus;
-  action: BarberStatusAction;
-  startedAt: number;
-}
-
 export interface Client {
   id: string;
   nome: string;
@@ -105,9 +88,6 @@ export interface AppState {
   dataAbertura: string | null;
   tempoRetomada?: number | null; // timestamp when to auto-resume
   barberStatus?: BarberStatus; // current barber status visible to clients
-  barberStatusStartedAt?: number | null; // timestamp when the current status started
-  barberStatusLastAction?: BarberStatusAction | null; // action that produced the current status
-  barberStatusHistory?: BarberStatusHistoryEntry[]; // recent status transitions with start timestamp
   delayAlertStartedAt?: number | null; // timestamp when delay alert started
 }
 

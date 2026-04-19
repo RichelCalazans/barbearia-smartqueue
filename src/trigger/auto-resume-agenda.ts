@@ -1,6 +1,7 @@
 import { task, logger } from "@trigger.dev/sdk/v3";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { ConfigService } from "../services/ConfigService";
 
 interface AutoResumePayload {
   resumeAt: number; // timestamp em ms quando retomar
@@ -83,6 +84,8 @@ export const autoResumeAgenda = task({
         },
         { merge: true }
       );
+
+      await ConfigService.setBarberStatusFromAction("AGUARDANDO_CLIENTE", "RETOMOU_PAUSA");
 
       logger.info("Agenda retomada automaticamente", {
         timestamp: new Date().toISOString(),

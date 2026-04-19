@@ -10,7 +10,6 @@ import {
   getDocs,
   getDoc,
   writeBatch,
-  runTransaction,
   Timestamp,
   serverTimestamp
 } from 'firebase/firestore';
@@ -222,51 +221,6 @@ export class QueueService {
       }
 
       await batch.commit();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, path);
-    }
-  }
-
-  static async reorderQueue(
-    ticketId: string,
-    newPosition: number,
-    config: AppConfig
-  ): Promise<void> {
-    const path = this.COLLECTION;
-    try {
-      await runTransaction(db, async (transaction) => {
-        const today = new Date().toISOString().split('T')[0];
-        const q = query(
-          collection(db, path),
-          where('data', '==', today),
-          where('status', 'in', ['AGUARDANDO']),
-          orderBy('posicao', 'asc')
-        );
-        const snapshot = await getDocs(q);
-        const queue = snapshot.docs.map(d => ({ id: d.id, posicao: d.data().posicao } as { id: string; posicao: number }));
-
-        const itemIndex = queue.findIndex(item => item.id === ticketId);
-        if (itemIndex === -1) {
-          throw new Error('Cliente não encontrado na fila');
-        }
-
-        const currentPosition = queue[itemIndex].posicao;
-        if (currentPosition === newPosition) return;
-
-        const updatedQueue = [...queue];
-        updatedQueue.splice(itemIndex, 1);
-        updatedQueue.splice(newPosition - 1, 0, { id: ticketId, posicao: newPosition });
-
-        for (let i = 0; i < updatedQueue.length; i++) {
-          const item = updatedQueue[i];
-          const newPos = i + 1;
-          if (item.posicao !== newPos) {
-            transaction.update(doc(db, path, item.id), { posicao: newPos });
-          }
-        }
-      });
-
-      await this.recalculateQueue(config);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }

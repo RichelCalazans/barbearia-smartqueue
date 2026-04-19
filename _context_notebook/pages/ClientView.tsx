@@ -15,7 +15,7 @@ import { QueueService } from '../services/QueueService';
 import { ConfigService } from '../services/ConfigService';
 import { useQueue } from '../hooks/useQueue';
 import { useApp } from '../contexts/AppContext';
-import { Service, QueueItem, AppConfig, AppState } from '../types';
+import { Service, QueueItem, AppConfig, AppState, BarberStatus } from '../types';
 import { getAvailableDates, getScheduleForDate, formatDateDisplay } from '../utils';
 import {
   validateNome,
@@ -129,14 +129,7 @@ export function ClientView() {
     const timeout = setTimeout(() => {
       if (mounted) {
         setLoading(false);
-        setState((prev: AppState | null) => prev ?? {
-          agendaAberta: false,
-          agendaPausada: false,
-          dataAbertura: null,
-          barberStatus: 'FILA_FECHADA',
-          barberStatusStartedAt: Date.now(),
-          barberStatusLastAction: 'INICIALIZACAO',
-        });
+        setState((prev: AppState | null) => prev ?? { agendaAberta: false, agendaPausada: false, dataAbertura: null });
       }
     }, 3000);
 

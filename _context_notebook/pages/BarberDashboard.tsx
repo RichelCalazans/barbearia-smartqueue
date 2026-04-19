@@ -27,6 +27,8 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
 import { Timer } from '../components/Timer';
+import { BarberStatusBanner } from '../components/BarberStatusBanner';
+import { Skeleton } from '../components/Skeleton';
 import { ScissorsLoading } from '../components/ScissorsLoading';
 import { QueueService } from '../services/QueueService';
 import { AttendanceService } from '../services/AttendanceService';
@@ -36,7 +38,7 @@ import { AnalyticsService } from '../services/AnalyticsService';
 import { UserService } from '../services/UserService';
 import { useQueue } from '../hooks/useQueue';
 import { useAuth } from '../hooks/useAuth';
-import { AppConfig, AppState, AppUser, UserRole } from '../types';
+import { QueueItem, AppConfig, AppState, AppUser, UserRole, BarberStatus } from '../types';
 import { cn } from '../utils';
 import { MetricsPage } from './MetricsPage';
 import { ClientsPage } from './ClientsPage';
@@ -44,11 +46,12 @@ import { BottomNavigation, AdminTab } from '../components/BottomNavigation';
 import { ResetEstimativasModal } from '../components/ResetEstimativasModal';
 import { DelayAlertBanner } from '../components/DelayAlertBanner';
 import { AgendaControls } from '../components/AgendaControls';
+import { BarberStatusControls } from '../components/BarberStatusControls';
 import { SettingsForm } from '../components/SettingsForm';
 
 export function BarberDashboard() {
   const navigate = useNavigate();
-  const { user, isAdmin, isSuperAdmin, loading: authLoading, signOut } = useAuth();
+  const { user, isAdmin, isSuperAdmin, hasPermission, appUser, loading: authLoading, signOut } = useAuth();
   const today = new Date().toISOString().split('T')[0];
   const [selectedQueueDate, setSelectedQueueDate] = useState<string>(today);
   const { queue, waiting, inService, loading: queueLoading } = useQueue(selectedQueueDate);
@@ -157,11 +160,35 @@ export function BarberDashboard() {
     if (!state) return;
 
     const updateBarberStatus = async () => {
-      await ConfigService.syncBarberStatusFromRuntime(
-        !!state.agendaAberta,
-        !!state.agendaPausada,
-        !!inService
-      );
+      const currentStatus = state.barberStatus;
+
+      // If agenda is closed, set to FILA_FECHADA
+      if (!state.agendaAberta) {
+        if (currentStatus !== 'FILA_FECHADA') {
+          await ConfigService.setBarberStatus('FILA_FECHADA');
+        }
+        return;
+      }
+
+      // If agenda is paused, set to EM_PAUSA
+      if (state.agendaPausada) {
+        if (currentStatus !== 'EM_PAUSA') {
+          await ConfigService.setBarberStatus('EM_PAUSA');
+        }
+        return;
+      }
+
+      // If there's a client in service, set to EM_CORTE
+      if (inService) {
+        if (currentStatus !== 'EM_CORTE') {
+          await ConfigService.setBarberStatus('EM_CORTE');
+        }
+      } else if (waiting.length === 0) {
+        // No clients in queue, waiting for client
+        if (currentStatus !== 'AGUARDANDO_CLIENTE') {
+          await ConfigService.setBarberStatus('AGUARDANDO_CLIENTE');
+        }
+      }
     };
 
     updateBarberStatus();
@@ -209,32 +236,10 @@ export function BarberDashboard() {
     try {
       switch (modalType) {
         case 'FINALIZE':
-          if (inService) {
-            await AttendanceService.finalizeAttendance(inService, config, user?.email || '');
-            if (state) {
-              await ConfigService.syncBarberStatusFromRuntime(
-                !!state.agendaAberta,
-                !!state.agendaPausada,
-                false
-              );
-            } else {
-              await ConfigService.setBarberStatusFromAction('AGUARDANDO_CLIENTE', 'FINALIZOU_ATENDIMENTO');
-            }
-          }
+          if (inService) await AttendanceService.finalizeAttendance(inService, config, user?.email || '');
           break;
         case 'ABSENT':
-          if (inService) {
-            await AttendanceService.markAsAbsent(inService, config);
-            if (state) {
-              await ConfigService.syncBarberStatusFromRuntime(
-                !!state.agendaAberta,
-                !!state.agendaPausada,
-                false
-              );
-            } else {
-              await ConfigService.setBarberStatusFromAction('AGUARDANDO_CLIENTE', 'SEM_CLIENTE_CHAMADO');
-            }
-          }
+          if (inService) await AttendanceService.markAsAbsent(inService, config);
           break;
         case 'OPEN_AGENDA':
           await ConfigService.toggleAgenda(true);
@@ -314,7 +319,6 @@ export function BarberDashboard() {
     setSubmitting(true);
     try {
       await QueueService.updateStatus(waiting[0].id, 'EM_ATENDIMENTO');
-      await ConfigService.setBarberStatusFromAction('EM_CORTE', 'CHAMOU_PROXIMO_CLIENTE');
     } catch (err) {
       console.error(err);
     } finally {
@@ -329,6 +333,14 @@ export function BarberDashboard() {
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
+  };
+
+  const handleBarberStatusChange = async (status: BarberStatus) => {
+    try {
+      await ConfigService.setBarberStatus(status);
+    } catch (err) {
+      console.error('Error updating barber status:', err);
+    }
   };
 
   const handleDelayAlertContinue = async () => {
@@ -347,7 +359,6 @@ export function BarberDashboard() {
         }
         // Call next
         await QueueService.updateStatus(waiting[0].id, 'EM_ATENDIMENTO');
-        await ConfigService.setBarberStatusFromAction('EM_CORTE', 'CHAMOU_PROXIMO_CLIENTE');
         setShowDelayAlert(false);
         setDelayMinutes(0);
       } catch (err) {
@@ -506,18 +517,17 @@ export function BarberDashboard() {
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
       {/* Header sticky — visível em todas as tabs */}
-      <header className="sticky top-0 z-40 bg-[#0A0A0A]/95 backdrop-blur-sm border-b border-[#1E1E1E] px-4 md:px-6 py-3 md:py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex-1 min-w-0">
+      <header className="sticky top-0 z-40 bg-[#0A0A0A]/95 backdrop-blur-sm border-b border-[#1E1E1E] px-6 py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="space-y-0.5">
             <h1 className="text-xs font-bold uppercase tracking-[0.2em] text-brand">
               {activeTab === 'FILA' ? 'Painel do Barbeiro' : activeTab === 'METRICAS' ? 'Métricas' : 'Clientes'}
             </h1>
-            <p className="text-base md:text-lg font-bold tracking-tight text-[#F1F5F9] truncate">
+            <p className="text-lg font-bold tracking-tight text-[#F1F5F9]">
               {activeTab === 'FILA' ? `Olá, ${config?.BARBER_NAME}` : activeTab === 'METRICAS' ? 'Análise de desempenho' : 'Gerenciar clientes'}
             </p>
           </div>
-          {/* Desktop: Icons inline */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={openManageServices} title="Gerenciar serviços">
               <Scissors className="h-5 w-5 text-[#64748B]" />
             </Button>
@@ -529,20 +539,11 @@ export function BarberDashboard() {
                 <TimerIcon className="h-5 w-5 text-[#64748B]" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }} title="Configurações">
+            <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }}>
               <Settings className="h-5 w-5 text-[#64748B]" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={signOut} title="Sair">
+            <Button variant="ghost" size="icon" onClick={signOut}>
               <UserMinus className="h-5 w-5 text-[#64748B]" />
-            </Button>
-          </div>
-          {/* Mobile: Menu button */}
-          <div className="md:hidden flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }} title="Configurações" className="h-10 w-10">
-              <Settings className="h-4 w-4 text-[#64748B]" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={signOut} title="Sair" className="h-10 w-10">
-              <UserMinus className="h-4 w-4 text-[#64748B]" />
             </Button>
           </div>
         </div>
@@ -558,7 +559,7 @@ export function BarberDashboard() {
           transition={{ duration: 0.2 }}
         >
           {activeTab === 'FILA' && (
-          <main className="p-4 md:p-6 pb-24 space-y-6 md:space-y-8 max-w-full mx-auto md:max-w-4xl">
+          <main className="p-6 pb-24 max-w-4xl mx-auto space-y-8">
         {error && (
           <div className="p-4 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm flex items-center gap-3">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -566,26 +567,26 @@ export function BarberDashboard() {
           </div>
         )}
         {/* Metrics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
-          <Card className="p-3 md:p-4 space-y-2">
-            <Users className="h-3.5 md:h-4 w-3.5 md:w-4 text-[#64748B]" />
-            <p className="text-xl md:text-2xl font-bold text-[#F1F5F9]">{metrics?.totalAttended || 0}</p>
-            <p className="text-[10px] md:text-xs font-medium text-[#64748B] uppercase">Atendidos</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4 space-y-2">
+            <Users className="h-4 w-4 text-[#64748B]" />
+            <p className="text-2xl font-bold text-[#F1F5F9]">{metrics?.totalAttended || 0}</p>
+            <p className="text-xs font-medium text-[#64748B] uppercase">Atendidos</p>
           </Card>
-          <Card className="p-3 md:p-4 space-y-2">
-            <TimerIcon className="h-3.5 md:h-4 w-3.5 md:w-4 text-[#64748B]" />
-            <p className="text-xl md:text-2xl font-bold text-[#F1F5F9]">{metrics?.averageTime || 0}m</p>
-            <p className="text-[10px] md:text-xs font-medium text-[#64748B] uppercase">Média</p>
+          <Card className="p-4 space-y-2">
+            <TimerIcon className="h-4 w-4 text-[#64748B]" />
+            <p className="text-2xl font-bold text-[#F1F5F9]">{metrics?.averageTime || 0}m</p>
+            <p className="text-xs font-medium text-[#64748B] uppercase">Média</p>
           </Card>
-          <Card className="p-3 md:p-4 space-y-2">
-            <TrendingUp className="h-3.5 md:h-4 w-3.5 md:w-4 text-[#64748B]" />
-            <p className="text-xl md:text-2xl font-bold text-[#F1F5F9]">{metrics?.adherence || 100}%</p>
-            <p className="text-[10px] md:text-xs font-medium text-[#64748B] uppercase">Aderência</p>
+          <Card className="p-4 space-y-2">
+            <TrendingUp className="h-4 w-4 text-[#64748B]" />
+            <p className="text-2xl font-bold text-[#F1F5F9]">{metrics?.adherence || 100}%</p>
+            <p className="text-xs font-medium text-[#64748B] uppercase">Aderência</p>
           </Card>
-          <Card className="p-3 md:p-4 space-y-2">
-            <Clock className="h-3.5 md:h-4 w-3.5 md:w-4 text-[#64748B]" />
-            <p className="text-xl md:text-2xl font-bold text-[#F1F5F9]">{waiting.length}</p>
-            <p className="text-[10px] md:text-xs font-medium text-[#64748B] uppercase">Fila</p>
+          <Card className="p-4 space-y-2">
+            <Clock className="h-4 w-4 text-[#64748B]" />
+            <p className="text-2xl font-bold text-[#F1F5F9]">{waiting.length}</p>
+            <p className="text-xs font-medium text-[#64748B] uppercase">Fila</p>
           </Card>
         </div>
 
@@ -615,59 +616,59 @@ export function BarberDashboard() {
           <h2 className="text-xs font-bold uppercase tracking-widest text-[#64748B] ml-1">Atendimento Atual</h2>
           {inService ? (
             <Card className="relative overflow-hidden border-brand/20">
-              <div className="flex flex-col items-center gap-6 md:gap-8 md:flex-row md:items-start">
-                <Timer
-                  startTime={inService.horaChamada || Date.now()}
-                  estimatedMinutes={inService.tempoEstimado}
+              <div className="flex flex-col md:flex-row items-center gap-8">
+                <Timer 
+                  startTime={inService.horaChamada || Date.now()} 
+                  estimatedMinutes={inService.tempoEstimado} 
                   className="shrink-0"
                 />
-                <div className="flex-1 space-y-5 md:space-y-6 text-center md:text-left w-full">
-                  <div className="space-y-1 md:space-y-2">
-                    <h3 className="text-2xl md:text-3xl font-bold text-[#F1F5F9] tracking-tight break-words">{inService.clienteNome}</h3>
-                    <p className="text-sm md:text-base text-brand font-medium">{inService.servicos}</p>
+                <div className="flex-1 space-y-6 text-center md:text-left">
+                  <div className="space-y-2">
+                    <h3 className="text-3xl font-bold text-[#F1F5F9] tracking-tight">{inService.clienteNome}</h3>
+                    <p className="text-brand font-medium">{inService.servicos}</p>
                   </div>
-                  <div className="grid grid-cols-1 gap-2 md:flex md:flex-wrap md:items-center md:justify-start md:gap-3">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                     <Button
-                      className="w-full md:w-auto h-11 md:h-12 md:px-8 font-bold bg-[#25D366] hover:bg-[#25D366]/90 text-white text-sm md:text-base"
+                      className="h-12 px-8 font-bold bg-[#25D366] hover:bg-[#25D366]/90 text-white"
                       onClick={() => handleWhatsApp(inService.telefone, inService.clienteNome)}
                       title="Enviar mensagem via WhatsApp"
                     >
-                      <MessageCircle className="mr-2 h-4 md:h-5 w-4 md:w-5" /> WhatsApp
+                      <MessageCircle className="mr-2 h-5 w-5" /> WhatsApp
                     </Button>
                     <Button
-                      className="w-full md:w-auto h-11 md:h-12 md:px-8 font-bold text-sm md:text-base"
+                      className="h-12 px-8 font-bold"
                       onClick={() => { setModalType('FINALIZE'); setIsModalOpen(true); }}
                       disabled={isViewingFutureDate}
                       title={isViewingFutureDate ? 'Acao disponivel apenas para o dia atual' : ''}
                     >
-                      <Check className="mr-2 h-4 md:h-5 w-4 md:w-5" /> Finalizar
+                      <Check className="mr-2 h-5 w-5" /> Finalizar
                     </Button>
                     <Button
                       variant="secondary"
-                      className="w-full md:w-auto h-11 md:h-12 md:px-8 font-bold text-sm md:text-base"
+                      className="h-12 px-8 font-bold"
                       onClick={() => { setModalType('ABSENT'); setIsModalOpen(true); }}
                       disabled={isViewingFutureDate}
                       title={isViewingFutureDate ? 'Acao disponivel apenas para o dia atual' : ''}
                     >
-                      <UserMinus className="mr-2 h-4 md:h-5 w-4 md:w-5" /> Ausente
+                      <UserMinus className="mr-2 h-5 w-5" /> Ausente
                     </Button>
                   </div>
                   {isViewingFutureDate && (
-                    <p className="text-xs text-[#F59E0B]">Acoes de gerenciamento disponiveis apenas para o dia atual</p>
+                    <p className="text-xs text-[#F59E0B] mt-2">Acoes de gerenciamento disponiveis apenas para o dia atual</p>
                   )}
                 </div>
               </div>
             </Card>
           ) : (
-            <Card className="min-h-40 md:h-48 flex flex-col items-center justify-center text-center space-y-3 md:space-y-4 border-dashed p-4 md:p-6">
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-[#1A1A1A] flex items-center justify-center">
-                <Scissors className="h-5 w-5 md:h-6 md:w-6 text-[#64748B]" />
+            <Card className="h-48 flex flex-col items-center justify-center text-center space-y-4 border-dashed">
+              <div className="h-12 w-12 rounded-full bg-[#1A1A1A] flex items-center justify-center">
+                <Scissors className="h-6 w-6 text-[#64748B]" />
               </div>
-              <p className="text-sm md:text-base text-[#64748B] font-medium">
+              <p className="text-[#64748B] font-medium">
                 {isViewingFutureDate ? 'Visualizando agendamentos futuros' : 'Nenhum cliente em atendimento'}
               </p>
               {waiting.length > 0 && !isViewingFutureDate && (
-                <Button onClick={handleCallNext} loading={submitting} className="text-sm md:text-base">
+                <Button onClick={handleCallNext} loading={submitting}>
                   <Play className="mr-2 h-4 w-4" /> Chamar Proximo ({waiting[0].clienteNome})
                 </Button>
               )}
@@ -681,11 +682,11 @@ export function BarberDashboard() {
         {/* Queue List */}
         <section className="space-y-4">
           {/* Date Selector */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-4">
             <button
               onClick={() => setSelectedQueueDate(today)}
               className={cn(
-                "px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap",
+                "px-4 py-2 rounded-lg text-sm font-bold transition-all",
                 selectedQueueDate === today
                   ? "bg-brand text-[#0A0A0A]"
                   : "bg-[#1A1A1A] text-[#64748B] hover:bg-[#252525]"
@@ -698,12 +699,12 @@ export function BarberDashboard() {
               value={selectedQueueDate}
               onChange={(e) => setSelectedQueueDate(e.target.value)}
               min={today}
-              className="px-3 py-2 rounded-lg bg-[#1A1A1A] border border-[#333] text-[#F1F5F9] text-sm font-medium focus:outline-none focus:border-brand transition-all flex-1 sm:flex-none"
+              className="px-4 py-2 rounded-lg bg-[#1A1A1A] border border-[#333] text-[#F1F5F9] text-sm font-medium focus:outline-none focus:border-brand transition-all"
             />
             {isViewingFutureDate && (
-              <span className="text-xs text-[#F59E0B] font-medium flex items-center gap-1 sm:col-span-2">
-                <Calendar className="h-3 w-3 shrink-0" />
-                <span>Visualizando agendamentos futuros</span>
+              <span className="text-xs text-[#F59E0B] font-medium flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                Visualizando agendamentos futuros
               </span>
             )}
           </div>
@@ -714,35 +715,35 @@ export function BarberDashboard() {
             </h2>
             <span className="text-xs font-bold text-brand">{waiting.length} clientes</span>
           </div>
-          <div className="space-y-2 md:space-y-3">
+          <div className="space-y-3">
             {waiting.map((item, index) => (
-              <Card key={item.id} className="p-3 md:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 group hover:border-brand/30 transition-all">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl bg-[#1A1A1A] flex items-center justify-center text-xs md:text-sm font-bold text-[#64748B] shrink-0">
+              <Card key={item.id} className="p-4 flex items-center justify-between group hover:border-brand/30 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-xl bg-[#1A1A1A] flex items-center justify-center text-sm font-bold text-[#64748B]">
                     {index + 1}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-[#F1F5F9] text-sm md:text-base truncate">{item.clienteNome}</p>
-                    <p className="text-xs text-[#64748B] truncate">{item.servicos}</p>
+                  <div>
+                    <p className="font-bold text-[#F1F5F9]">{item.clienteNome}</p>
+                    <p className="text-xs text-[#64748B]">{item.servicos}</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-3 sm:gap-3">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={() => handleWhatsApp(item.telefone, item.clienteNome)}
-                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 md:p-2 hover:bg-brand/10 rounded-lg shrink-0"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-brand/10 rounded-lg"
                     title="Chamar via WhatsApp"
                   >
-                    <MessageCircle className="h-4 w-4 md:h-5 md:w-5 text-brand" />
+                    <MessageCircle className="h-5 w-5 text-brand" />
                   </button>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs md:text-sm font-bold text-[#F1F5F9]">
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-[#F1F5F9]">
                       {typeof item.horaPrevista === 'string'
                         ? item.horaPrevista.match(/^\d{2}:\d{2}/)
                           ? item.horaPrevista
                           : item.horaPrevista.substring(0, 5)
                         : '00:00'}
                     </p>
-                    <p className="text-[9px] md:text-[10px] uppercase tracking-wider text-[#64748B] font-bold">Previsto</p>
+                    <p className="text-[10px] uppercase tracking-wider text-[#64748B] font-bold">Previsto</p>
                   </div>
                 </div>
               </Card>
@@ -780,6 +781,11 @@ export function BarberDashboard() {
             setModalType(waiting.length > 0 ? 'CLOSE_AGENDA_CHOICE' : 'CLOSE_AGENDA');
             setIsModalOpen(true);
           }}
+        />
+
+        <BarberStatusControls
+          currentStatus={state?.barberStatus}
+          onChange={handleBarberStatusChange}
         />
           </main>
           )}

@@ -3,17 +3,15 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  onSnapshot,
-  runTransaction
+  onSnapshot
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { AppConfig, AppState, BarberStatus, BarberStatusAction, BarberStatusHistoryEntry } from '../types';
+import { AppConfig, AppState, BarberStatus } from '../types';
 import { DEFAULT_BARBER_EMAIL } from '../config/admin';
 
 export class ConfigService {
   private static SETTINGS_PATH = 'config/settings';
   private static STATE_PATH = 'config/state';
-  private static STATUS_HISTORY_LIMIT = 200;
 
   static DEFAULT_CONFIG: AppConfig = {
     BUFFER_MINUTES: 8,
@@ -65,61 +63,10 @@ export class ConfigService {
 
       const stateDoc = await getDoc(doc(db, this.STATE_PATH));
       if (!stateDoc.exists()) {
-        const startedAt = Date.now();
         await setDoc(doc(db, this.STATE_PATH), {
           agendaAberta: false,
-          agendaPausada: false,
           dataAbertura: null,
-          barberStatus: 'FILA_FECHADA',
-          barberStatusStartedAt: startedAt,
-          barberStatusLastAction: 'INICIALIZACAO',
-          barberStatusHistory: [
-            {
-              status: 'FILA_FECHADA',
-              action: 'INICIALIZACAO',
-              startedAt,
-            } as BarberStatusHistoryEntry,
-          ],
         });
-      } else {
-        const currentState = stateDoc.data() as AppState;
-        const updates: any = {};
-
-        if (currentState.agendaPausada === undefined) {
-          updates.agendaPausada = false;
-        }
-
-        if (!currentState.barberStatus) {
-          const startedAt = Date.now();
-          updates.barberStatus = 'FILA_FECHADA';
-          updates.barberStatusStartedAt = startedAt;
-          updates.barberStatusLastAction = 'INICIALIZACAO';
-          updates.barberStatusHistory = [
-            {
-              status: 'FILA_FECHADA',
-              action: 'INICIALIZACAO',
-              startedAt,
-            } as BarberStatusHistoryEntry,
-          ];
-        } else if (!currentState.barberStatusStartedAt) {
-          const startedAt = Date.now();
-          const history = Array.isArray(currentState.barberStatusHistory) ? currentState.barberStatusHistory : [];
-          const nextHistory = [
-            ...history,
-            {
-              status: currentState.barberStatus,
-              action: currentState.barberStatusLastAction || 'INICIALIZACAO',
-              startedAt,
-            } as BarberStatusHistoryEntry,
-          ].slice(-this.STATUS_HISTORY_LIMIT);
-          updates.barberStatusStartedAt = startedAt;
-          updates.barberStatusLastAction = currentState.barberStatusLastAction || 'INICIALIZACAO';
-          updates.barberStatusHistory = nextHistory;
-        }
-
-        if (Object.keys(updates).length > 0) {
-          await updateDoc(doc(db, this.STATE_PATH), updates);
-        }
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'config');
@@ -149,14 +96,7 @@ export class ConfigService {
       if (snapshot.exists()) {
         callback(snapshot.data() as AppState);
       } else {
-        callback({
-          agendaAberta: false,
-          dataAbertura: null,
-          agendaPausada: false,
-          barberStatus: 'FILA_FECHADA',
-          barberStatusStartedAt: Date.now(),
-          barberStatusLastAction: 'INICIALIZACAO',
-        });
+        callback({ agendaAberta: false, dataAbertura: null, agendaPausada: false });
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, this.STATE_PATH);
@@ -206,11 +146,6 @@ export class ConfigService {
         agendaPausada: false,
         dataAbertura: open ? new Date().toISOString().split('T')[0] : null,
       }, { merge: true });
-
-      await this.setBarberStatusFromAction(
-        open ? 'AGUARDANDO_CLIENTE' : 'FILA_FECHADA',
-        open ? 'ABRIU_AGENDA' : 'FECHOU_FILA'
-      );
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, this.STATE_PATH);
     }
@@ -231,11 +166,6 @@ export class ConfigService {
         updates.tempoRetomada = null;
       }
       await setDoc(doc(db, this.STATE_PATH), updates, { merge: true });
-
-      await this.setBarberStatusFromAction(
-        paused ? 'EM_PAUSA' : 'AGUARDANDO_CLIENTE',
-        paused ? 'PAUSA_CONFIRMADA' : 'RETOMOU_PAUSA'
-      );
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, this.STATE_PATH);
     }
@@ -255,72 +185,11 @@ export class ConfigService {
   /**
    * Updates the barber status.
    */
-  static async setBarberStatus(status: BarberStatus, action: BarberStatusAction = 'SINCRONIZACAO_SISTEMA'): Promise<void> {
-    await this.setBarberStatusFromAction(status, action);
-  }
-
-  /**
-   * Derives barber status from current queue/agenda runtime.
-   */
-  static deriveBarberStatus(agendaAberta: boolean, agendaPausada: boolean, hasClientInService: boolean): BarberStatus {
-    if (!agendaAberta) return 'FILA_FECHADA';
-    if (agendaPausada) return 'EM_PAUSA';
-    if (hasClientInService) return 'EM_CORTE';
-    return 'AGUARDANDO_CLIENTE';
-  }
-
-  /**
-   * Syncs barber status from derived runtime state.
-   */
-  static async syncBarberStatusFromRuntime(
-    agendaAberta: boolean,
-    agendaPausada: boolean,
-    hasClientInService: boolean
-  ): Promise<void> {
-    const derivedStatus = this.deriveBarberStatus(agendaAberta, agendaPausada, hasClientInService);
-    const actionByStatus: Record<BarberStatus, BarberStatusAction> = {
-      AGUARDANDO_CLIENTE: 'SEM_CLIENTE_CHAMADO',
-      EM_CORTE: 'CHAMOU_PROXIMO_CLIENTE',
-      EM_PAUSA: 'PAUSA_CONFIRMADA',
-      FILA_FECHADA: 'FECHOU_FILA',
-    };
-    await this.setBarberStatusFromAction(derivedStatus, actionByStatus[derivedStatus]);
-  }
-
-  /**
-   * Transitions barber status and stores status start history.
-   */
-  static async setBarberStatusFromAction(
-    status: BarberStatus,
-    action: BarberStatusAction,
-    startedAt: number = Date.now()
-  ): Promise<void> {
+  static async setBarberStatus(status: BarberStatus): Promise<void> {
     try {
-      const stateRef = doc(db, this.STATE_PATH);
-
-      await runTransaction(db, async (transaction) => {
-        const stateDoc = await transaction.get(stateRef);
-        const currentState = stateDoc.exists() ? (stateDoc.data() as AppState) : null;
-
-        const currentStatus = currentState?.barberStatus;
-        const statusAlreadyStarted = currentState?.barberStatusStartedAt;
-        if (currentStatus === status && statusAlreadyStarted) {
-          return;
-        }
-
-        const history = Array.isArray(currentState?.barberStatusHistory) ? currentState!.barberStatusHistory : [];
-        const nextHistory: BarberStatusHistoryEntry[] = [
-          ...history,
-          { status, action, startedAt },
-        ].slice(-this.STATUS_HISTORY_LIMIT);
-
-        transaction.set(stateRef, {
-          barberStatus: status,
-          barberStatusStartedAt: startedAt,
-          barberStatusLastAction: action,
-          barberStatusHistory: nextHistory,
-        }, { merge: true });
-      });
+      await setDoc(doc(db, this.STATE_PATH), {
+        barberStatus: status,
+      }, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, this.STATE_PATH);
     }

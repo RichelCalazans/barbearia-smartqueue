@@ -32,9 +32,9 @@ export function Button({
 
   const sizes = {
     sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2',
+    md: 'px-4 py-2.5 text-base',
     lg: 'px-6 py-3 text-lg',
-    icon: 'p-2',
+    icon: 'p-2.5 md:p-2 min-h-10 min-w-10 md:min-h-auto md:min-w-auto',
   };
 
   return (
