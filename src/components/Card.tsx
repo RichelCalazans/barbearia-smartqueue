@@ -17,7 +17,7 @@ export function Card({ children, className, variant = 'default', ...props }: Car
   };
 
   return (
-    <div className={cn('rounded-2xl p-6', variants[variant], className)} {...props}>
+    <div className={cn('rounded-2xl p-4 sm:p-6', variants[variant], className)} {...props}>
       {children}
     </div>
   );

@@ -142,7 +142,7 @@ export function ClientsPage({ config }: ClientsPageProps) {
   };
 
   return (
-    <div className="p-6 space-y-4 max-w-4xl mx-auto">
+    <div className="mx-auto max-w-4xl space-y-4 px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:px-6 sm:py-6 sm:pb-24">
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-sm text-[#64748B]">{filtered.length} clientes</p>
@@ -154,7 +154,7 @@ export function ClientsPage({ config }: ClientsPageProps) {
             placeholder="Buscar por nome ou telefone..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full h-11 pl-11 pr-4 rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
+            className="h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] pl-11 pr-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] transition-all focus:outline-none focus:border-brand"
           />
         </div>
       </div>
@@ -165,7 +165,7 @@ export function ClientsPage({ config }: ClientsPageProps) {
             key={key}
             onClick={() => setFilter(key)}
             className={cn(
-              'px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-colors whitespace-nowrap',
+              'min-h-9 whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors',
               filter === key
                 ? 'bg-brand text-black'
                 : 'bg-[#1A1A1A] text-[#64748B] hover:text-[#F1F5F9]'
@@ -193,7 +193,7 @@ export function ClientsPage({ config }: ClientsPageProps) {
             <Card
               key={client.id}
               className={cn(
-                'p-4 flex items-center gap-3 cursor-pointer hover:border-brand/30 transition-all',
+                'cursor-pointer p-3.5 sm:p-4 flex items-start gap-3 transition-all hover:border-brand/30',
                 !client.ativo && 'opacity-50'
               )}
               onClick={() => openDetail(client)}
@@ -206,8 +206,8 @@ export function ClientsPage({ config }: ClientsPageProps) {
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold text-[#F1F5F9] truncate">{client.nome}</p>
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <p className="text-sm font-bold text-[#F1F5F9] break-words">{client.nome}</p>
                   <span
                     className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider shrink-0"
                     style={{ backgroundColor: badge.color + '15', color: badge.color }}
@@ -326,14 +326,14 @@ export function ClientsPage({ config }: ClientsPageProps) {
                 </div>
 
                 {isSuperAdmin && (
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditMode(true)}>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => setEditMode(true)}>
                       <Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar
                     </Button>
                     <Button
                       variant={selectedClient.ativo ? 'danger' : 'secondary'}
                       size="sm"
-                      className="flex-1"
+                      className="w-full"
                       onClick={handleToggleActive}
                       loading={submitting}
                     >
@@ -342,6 +342,7 @@ export function ClientsPage({ config }: ClientsPageProps) {
                     <Button
                       variant="danger"
                       size="sm"
+                      className="w-full"
                       onClick={handleDeleteClient}
                       loading={submitting}
                     >

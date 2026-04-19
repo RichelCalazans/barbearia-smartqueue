@@ -201,13 +201,13 @@ export function MetricsPage({ config }: MetricsPageProps) {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      <div className="flex gap-2 mb-6">
+    <div className="mx-auto max-w-4xl space-y-6 px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:px-6 sm:py-6 sm:pb-24">
+      <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
         {(['hoje', '7dias', '30dias'] as MetricsPeriod[]).map((p) => (
           <button
             key={p}
             onClick={() => setPeriod(p)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer ${
+            className={`min-h-10 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
               period === p
                 ? 'bg-brand text-black font-bold'
                 : 'bg-[#1A1A1A] text-[#64748B]'

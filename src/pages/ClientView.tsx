@@ -360,10 +360,10 @@ export function ClientView() {
     const isInService = activeTicket.status === 'EM_ATENDIMENTO';
 
     return (
-      <div className="min-h-screen bg-[var(--color-bg)] p-6 pb-24">
-        <header className="mb-10 space-y-1">
+      <div className="min-h-screen bg-[var(--color-bg)] px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:px-6 sm:pb-24">
+        <header className="mb-7 space-y-1 sm:mb-10">
           <ShopLogo url={appConfig?.LOGO_URL} name={config?.SHOP_NAME || 'SmartQueue'} invert />
-          <p className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>
+          <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>
             {isInService ? 'É a sua vez!' : 'Você está na fila'}
           </p>
         </header>
@@ -378,7 +378,7 @@ export function ClientView() {
           </div>
         )}
 
-        <main className="max-w-md mx-auto space-y-4">
+        <main className="mx-auto max-w-md space-y-4">
           {error && (
             <div className="p-4 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm flex items-center gap-3">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -386,7 +386,7 @@ export function ClientView() {
             </div>
           )}
 
-          <Card className="space-y-6">
+          <Card className="space-y-5 sm:space-y-6">
             {/* Status badge */}
             <div className={`flex items-center gap-3 p-4 rounded-xl ${
               isInService
@@ -408,14 +408,14 @@ export function ClientView() {
 
             {/* Position + time */}
             {!isInService && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 <div className="p-4 rounded-xl bg-[#111111] border border-[#1E1E1E] text-center">
                   <p className="text-xs text-[#64748B] uppercase tracking-wider mb-1">Posição</p>
-                  <p className="text-3xl font-bold text-[#F1F5F9]">{position > 0 ? position : '—'}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-[#F1F5F9]">{position > 0 ? position : '—'}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-[#111111] border border-[#1E1E1E] text-center">
                   <p className="text-xs text-[#64748B] uppercase tracking-wider mb-1">Previsão</p>
-                  <p className="text-3xl font-bold text-[#F1F5F9]">
+                  <p className="text-2xl sm:text-3xl font-bold text-[#F1F5F9]">
                     {typeof activeTicket.horaPrevista === 'string' && activeTicket.horaPrevista.match(/^\d{2}:\d{2}$/)
                       ? activeTicket.horaPrevista
                       : typeof activeTicket.horaPrevista === 'string'
@@ -496,12 +496,12 @@ export function ClientView() {
     };
 
     return (
-      <div className="min-h-screen bg-[var(--color-bg)] p-6">
-        <header className="mb-10 space-y-1">
+      <div className="min-h-screen bg-[var(--color-bg)] px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:px-6 sm:pb-24">
+        <header className="mb-7 space-y-1 sm:mb-10">
           <ShopLogo url={appConfig?.LOGO_URL} name={config?.SHOP_NAME || 'SmartQueue'} invert />
         </header>
 
-        <main className="max-w-md mx-auto space-y-6">
+        <main className="mx-auto max-w-md space-y-5 sm:space-y-6">
           {/* Mensagem de agenda fechada hoje */}
           <Card className="text-center space-y-4">
             <div className="h-16 w-16 mx-auto rounded-full bg-[#111111] border border-[#1E1E1E] flex items-center justify-center">
@@ -571,16 +571,16 @@ export function ClientView() {
 
   // === BOOKING FORM ===
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] p-6 pb-24">
-      <header className="mb-10 space-y-1">
+    <div className="min-h-screen bg-[var(--color-bg)] px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:px-6 sm:pb-24">
+      <header className="mb-7 space-y-1 sm:mb-10">
         <ShopLogo url={appConfig?.LOGO_URL} name={config?.SHOP_NAME || 'SmartQueue'} />
-        <p className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>
+        <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>
           Reserve seu lugar
         </p>
       </header>
 
-      <main className="max-w-md mx-auto space-y-8">
-        <Card className="space-y-8">
+      <main className="mx-auto max-w-md space-y-6 sm:space-y-8">
+        <Card className="space-y-6 sm:space-y-8">
           {error && (
             <div className="p-4 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm flex items-center gap-3 mb-4">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -594,7 +594,7 @@ export function ClientView() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="space-y-8"
+                className="space-y-6 sm:space-y-8"
               >
                 <div className="space-y-4">
                   <label className="text-sm font-medium text-[#64748B] ml-1">
@@ -732,7 +732,7 @@ export function ClientView() {
                 </div>
                 <Button
                   onClick={() => setStep(2)}
-                  className="w-full h-14 text-lg font-bold"
+                  className="h-12 w-full font-bold sm:h-14 sm:text-lg"
                   disabled={selectedServices.length === 0}
                 >
                   Próximo
@@ -747,7 +747,7 @@ export function ClientView() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 onSubmit={handleCheckClient}
-                className="space-y-8"
+                className="space-y-6 sm:space-y-8"
               >
                 <div className="space-y-4">
                   <Input
@@ -758,11 +758,11 @@ export function ClientView() {
                     required
                   />
                 </div>
-                <div className="flex gap-3">
-                  <Button variant="ghost" onClick={() => setStep(1)} className="flex-1">Voltar</Button>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
+                  <Button variant="ghost" onClick={() => setStep(1)} className="w-full sm:flex-1">Voltar</Button>
                   <Button
                     type="submit"
-                    className="flex-[2] h-14 text-lg font-bold"
+                    className="h-12 w-full font-bold sm:h-14 sm:flex-[2] sm:text-lg"
                     loading={submitting}
                     disabled={telefone.length < 10}
                   >
@@ -779,7 +779,7 @@ export function ClientView() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 onSubmit={handleJoinQueue}
-                className="space-y-8"
+                className="space-y-6 sm:space-y-8"
               >
                 <div className="space-y-4">
                   <p className="text-sm text-[#64748B] mb-4">
@@ -802,9 +802,9 @@ export function ClientView() {
                     required
                   />
                 </div>
-                <div className="flex gap-3">
-                  <Button variant="ghost" onClick={() => setStep(2)} className="flex-1">Voltar</Button>
-                  <Button type="submit" className="flex-[2] h-14 font-bold" loading={submitting}>Entrar na Fila</Button>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
+                  <Button variant="ghost" onClick={() => setStep(2)} className="w-full sm:flex-1">Voltar</Button>
+                  <Button type="submit" className="h-12 w-full font-bold sm:h-14 sm:flex-[2]" loading={submitting}>Entrar na Fila</Button>
                 </div>
               </motion.form>
             )}
@@ -815,22 +815,22 @@ export function ClientView() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="space-y-8"
+                className="space-y-6 sm:space-y-8"
               >
                 <div className="space-y-4 text-center">
-                  <div className="h-20 w-20 rounded-full bg-brand/10 flex items-center justify-center mx-auto mb-4">
-                    <User className="h-10 w-10 text-brand" />
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand/10 sm:h-20 sm:w-20">
+                    <User className="h-8 w-8 text-brand sm:h-10 sm:w-10" />
                   </div>
                   <h3 className="text-xl font-bold text-[#F1F5F9]">Bem-vindo de volta, {nome}!</h3>
                   <p className="text-sm text-[#64748B]">
                     Tudo pronto para o seu atendimento. Clique abaixo para confirmar sua entrada na fila.
                   </p>
                 </div>
-                <div className="flex gap-3">
-                  <Button variant="ghost" onClick={() => setStep(2)} className="flex-1">Voltar</Button>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
+                  <Button variant="ghost" onClick={() => setStep(2)} className="w-full sm:flex-1">Voltar</Button>
                   <Button
                     onClick={() => handleJoinQueue()}
-                    className="flex-[2] h-14 font-bold"
+                    className="h-12 w-full font-bold sm:h-14 sm:flex-[2]"
                     loading={submitting}
                   >
                     Confirmar e Entrar

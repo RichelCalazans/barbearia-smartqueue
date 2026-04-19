@@ -21,18 +21,18 @@ export function DelayAlertBanner({
     <motion.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 space-y-3"
+      className="space-y-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4"
     >
       <div className="flex items-center gap-3">
-        <AlertTriangle className="h-5 w-5 text-red-400 animate-pulse" />
+        <AlertTriangle className="h-5 w-5 shrink-0 animate-pulse text-red-400" />
         <div className="flex-1">
           <p className="text-sm font-bold text-red-400">Atendimento atrasado!</p>
           <p className="text-xs text-red-300">Cronômetro: {delayMinutes} min atrasado</p>
         </div>
-        <TimerReset className="h-5 w-5 text-red-400 animate-pulse" />
+        <TimerReset className="h-5 w-5 shrink-0 animate-pulse text-red-400" />
       </div>
-      <div className="flex gap-2">
-        <Button variant="ghost" size="sm" onClick={onContinue} className="flex-1 text-xs h-9">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <Button variant="ghost" size="sm" onClick={onContinue} className="h-10 w-full text-xs">
           <Clock className="mr-2 h-4 w-4" /> Continuar
         </Button>
         <Button
@@ -41,7 +41,7 @@ export function DelayAlertBanner({
           onClick={onCallNext}
           disabled={callNextDisabled}
           loading={submitting}
-          className="flex-1 text-xs h-9"
+          className="h-10 w-full text-xs"
         >
           <SkipForward className="mr-2 h-4 w-4" /> Chamar Próximo
         </Button>

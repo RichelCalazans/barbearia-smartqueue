@@ -506,44 +506,60 @@ export function BarberDashboard() {
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
       {/* Header sticky — visível em todas as tabs */}
-      <header className="sticky top-0 z-40 bg-[#0A0A0A]/95 backdrop-blur-sm border-b border-[#1E1E1E] px-4 md:px-6 py-3 md:py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xs font-bold uppercase tracking-[0.2em] text-brand">
-              {activeTab === 'FILA' ? 'Painel do Barbeiro' : activeTab === 'METRICAS' ? 'Métricas' : 'Clientes'}
-            </h1>
-            <p className="text-base md:text-lg font-bold tracking-tight text-[#F1F5F9] truncate">
-              {activeTab === 'FILA' ? `Olá, ${config?.BARBER_NAME}` : activeTab === 'METRICAS' ? 'Análise de desempenho' : 'Gerenciar clientes'}
-            </p>
+      <header className="sticky top-0 z-40 border-b border-[#1E1E1E] bg-[#0A0A0A]/95 px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-4">
+        <div className="mx-auto max-w-4xl space-y-2.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand sm:text-xs">
+                {activeTab === 'FILA' ? 'Painel do Barbeiro' : activeTab === 'METRICAS' ? 'Métricas' : 'Clientes'}
+              </h1>
+              <p className="truncate text-base font-bold tracking-tight text-[#F1F5F9] sm:text-lg">
+                {activeTab === 'FILA' ? `Olá, ${config?.BARBER_NAME}` : activeTab === 'METRICAS' ? 'Análise de desempenho' : 'Gerenciar clientes'}
+              </p>
+            </div>
+
+            <div className="hidden items-center gap-2 md:flex">
+              <Button variant="ghost" size="icon" onClick={openManageServices} title="Gerenciar serviços">
+                <Scissors className="h-5 w-5 text-[#64748B]" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={openManageUsers} title="Gerenciar usuários">
+                <UserPlus className="h-5 w-5 text-[#64748B]" />
+              </Button>
+              {isSuperAdmin && (
+                <Button variant="ghost" size="icon" onClick={() => { setModalType('RESET_ESTIMATIVAS'); setIsModalOpen(true); }} title="Estimativas de tempo">
+                  <TimerIcon className="h-5 w-5 text-[#64748B]" />
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }} title="Configurações">
+                <Settings className="h-5 w-5 text-[#64748B]" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={signOut} title="Sair">
+                <UserMinus className="h-5 w-5 text-[#64748B]" />
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-1 md:hidden">
+              <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }} title="Configurações">
+                <Settings className="h-4 w-4 text-[#64748B]" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={signOut} title="Sair">
+                <UserMinus className="h-4 w-4 text-[#64748B]" />
+              </Button>
+            </div>
           </div>
-          {/* Desktop: Icons inline */}
-          <div className="hidden md:flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={openManageServices} title="Gerenciar serviços">
-              <Scissors className="h-5 w-5 text-[#64748B]" />
+
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:hidden">
+            <Button variant="ghost" size="icon" onClick={openManageServices} title="Gerenciar serviços" className="shrink-0 border border-[#1E1E1E] bg-[#111111]">
+              <Scissors className="h-4 w-4 text-[#64748B]" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={openManageUsers} title="Gerenciar usuários">
-              <UserPlus className="h-5 w-5 text-[#64748B]" />
+            <Button variant="ghost" size="icon" onClick={openManageUsers} title="Gerenciar usuários" className="shrink-0 border border-[#1E1E1E] bg-[#111111]">
+              <UserPlus className="h-4 w-4 text-[#64748B]" />
             </Button>
             {isSuperAdmin && (
-              <Button variant="ghost" size="icon" onClick={() => { setModalType('RESET_ESTIMATIVAS'); setIsModalOpen(true); }} title="Estimativas de tempo">
-                <TimerIcon className="h-5 w-5 text-[#64748B]" />
+              <Button variant="ghost" size="icon" onClick={() => { setModalType('RESET_ESTIMATIVAS'); setIsModalOpen(true); }} title="Estimativas de tempo" className="shrink-0 border border-[#1E1E1E] bg-[#111111]">
+                <TimerIcon className="h-4 w-4 text-[#64748B]" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }} title="Configurações">
-              <Settings className="h-5 w-5 text-[#64748B]" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={signOut} title="Sair">
-              <UserMinus className="h-5 w-5 text-[#64748B]" />
-            </Button>
-          </div>
-          {/* Mobile: Menu button */}
-          <div className="md:hidden flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }} title="Configurações" className="h-10 w-10">
-              <Settings className="h-4 w-4 text-[#64748B]" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={signOut} title="Sair" className="h-10 w-10">
-              <UserMinus className="h-4 w-4 text-[#64748B]" />
-            </Button>
           </div>
         </div>
       </header>
@@ -558,7 +574,7 @@ export function BarberDashboard() {
           transition={{ duration: 0.2 }}
         >
           {activeTab === 'FILA' && (
-          <main className="p-4 md:p-6 pb-24 space-y-6 md:space-y-8 max-w-full mx-auto md:max-w-4xl">
+          <main className="mx-auto max-w-4xl space-y-6 px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:space-y-8 sm:px-6 sm:py-6 sm:pb-24">
         {error && (
           <div className="p-4 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm flex items-center gap-3">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -587,17 +603,6 @@ export function BarberDashboard() {
             <p className="text-xl md:text-2xl font-bold text-[#F1F5F9]">{waiting.length}</p>
             <p className="text-[10px] md:text-xs font-medium text-[#64748B] uppercase">Fila</p>
           </Card>
-        </div>
-
-        <div className="flex justify-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => ConfigService.initialize().then(() => alert('Config inicializada!'))}>
-            Resetar Configurações
-          </Button>
-        </div>
-
-        {/* Debug Info (Only for development/troubleshooting) */}
-        <div className="text-[10px] text-[#64748B]/30 font-mono uppercase tracking-widest text-center">
-          Status: {state?.agendaAberta ? 'Aberta' : 'Fechada'} | Doc: {state ? 'Existe' : 'Nulo'}
         </div>
 
         {showDelayAlert && inService && delayMinutes > 0 && (
@@ -712,7 +717,9 @@ export function BarberDashboard() {
             <h2 className="text-xs font-bold uppercase tracking-widest text-[#64748B]">
               {isViewingFutureDate ? 'Agendamentos do Dia' : 'Próximos na Fila'}
             </h2>
-            <span className="text-xs font-bold text-brand">{waiting.length} clientes</span>
+            <span className="text-xs font-bold text-brand">
+              {waiting.length} cliente{waiting.length !== 1 ? 's' : ''}
+            </span>
           </div>
           <div className="space-y-2 md:space-y-3">
             {waiting.map((item, index) => (
@@ -831,7 +838,7 @@ export function BarberDashboard() {
           ) : modalType === 'CLOSE_AGENDA_CHOICE' ? (
             <>
               <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-              <div className="flex gap-2 flex-1">
+              <div className="grid w-full grid-cols-1 gap-2 sm:flex-1 sm:grid-cols-2">
                 <Button
                   variant="outline"
                   onClick={() => { setModalType('CLOSE_AGENDA_KEEP'); }}

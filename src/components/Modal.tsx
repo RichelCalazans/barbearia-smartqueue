@@ -35,7 +35,7 @@ export function Modal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -51,7 +51,7 @@ export function Modal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className={cn(
-              'relative w-full max-h-[90vh] overflow-y-auto md:max-w-md rounded-t-3xl md:rounded-3xl bg-[#111111] border border-[#1E1E1E] shadow-2xl',
+              'relative w-full max-h-[92vh] overflow-y-auto rounded-t-3xl border border-[#1E1E1E] bg-[#111111] shadow-2xl sm:max-h-[90vh] sm:max-w-md sm:rounded-3xl',
               className
             )}
           >
@@ -63,7 +63,7 @@ export function Modal({
             </div>
             <div className="p-4 md:p-6">{children}</div>
             {footer && (
-              <div className="sticky bottom-0 flex flex-col md:flex-row items-center justify-end gap-2 md:gap-3 border-t border-[#1E1E1E] p-4 md:p-6 bg-[#111111] backdrop-blur-sm">
+              <div className="sticky bottom-0 flex flex-col items-stretch justify-end gap-2 border-t border-[#1E1E1E] bg-[#111111] p-4 backdrop-blur-sm sm:flex-row sm:items-center sm:gap-3 sm:p-6">
                 {footer}
               </div>
             )}

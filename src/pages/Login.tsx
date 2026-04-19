@@ -74,24 +74,24 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-4 sm:p-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md space-y-8 text-center"
+        className="w-full max-w-md space-y-7 text-center"
       >
         <div className="space-y-4">
-          <div className="h-20 w-20 rounded-3xl bg-gradient-to-br from-brand to-brand-dark mx-auto flex items-center justify-center shadow-2xl shadow-brand/20 rotate-12">
-            <Scissors className="h-10 w-10 text-white" />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand to-brand-dark shadow-2xl shadow-brand/20 rotate-12 sm:h-20 sm:w-20">
+            <Scissors className="h-8 w-8 text-white sm:h-10 sm:w-10" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tighter text-[#F1F5F9]">SmartQueue</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tighter text-[#F1F5F9]">SmartQueue</h1>
             <p className="text-[#64748B] font-medium uppercase tracking-[0.2em] text-xs">Acesso Administrativo</p>
           </div>
         </div>
 
-        <Card className="p-8">
-          <form onSubmit={handleLogin} className="space-y-6">
+        <Card className="p-5 sm:p-8">
+          <form onSubmit={handleLogin} className="space-y-5 sm:space-y-6">
             <p className="text-[#64748B] text-sm leading-relaxed">
               Para gerenciar a agenda e os atendimentos, faça login com suas credenciais.
             </p>
@@ -130,7 +130,7 @@ export function Login() {
 
             <Button
               type="submit"
-              className="w-full h-14 font-bold text-lg"
+              className="h-12 w-full font-bold sm:h-14 sm:text-lg"
               loading={submitting || loading}
             >
               <LogIn className="mr-2 h-5 w-5" /> Entrar

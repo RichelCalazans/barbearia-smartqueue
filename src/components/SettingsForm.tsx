@@ -50,7 +50,7 @@ export function SettingsForm({ tempConfig, onChange }: Props) {
         <p className="text-[10px] text-[#64748B]">Cole a URL de uma imagem (PNG, JPG)</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {([
           { key: 'PRIMARY_COLOR' as const, label: 'Principal', fallback: '#00D4A5' },
           { key: 'SECONDARY_COLOR' as const, label: 'Fundo', fallback: '#1A1A1A' },
@@ -121,7 +121,7 @@ export function SettingsForm({ tempConfig, onChange }: Props) {
                 </button>
               </div>
               {schedule.enabled && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Abertura</label>
                     <input
