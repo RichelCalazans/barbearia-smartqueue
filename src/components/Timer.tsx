@@ -34,9 +34,9 @@ export function Timer({ startTime, estimatedMinutes, className }: TimerProps) {
 
   return (
     <div className={cn('flex flex-col items-center justify-center space-y-6', className)}>
-      <div className="relative h-32 w-32 md:h-48 md:w-48">
+      <div className="relative h-40 w-40 md:h-48 md:w-48">
         {/* Background Circle */}
-        <svg className="h-full w-full -rotate-90 transform">
+        <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 192 192">
           <circle
             cx="96"
             cy="96"
