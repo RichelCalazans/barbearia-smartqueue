@@ -2,6 +2,9 @@ export type QueueStatus = 'AGUARDANDO' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'CANCE
 
 export type BarberStatus = 'AGUARDANDO_CLIENTE' | 'EM_CORTE' | 'EM_PAUSA' | 'FILA_FECHADA';
 
+export type ClientRegistrationStatus = 'PENDING_COMPLETION' | 'ACTIVE';
+export type ClientOrigin = 'CLIENT_SELF' | 'BARBER_MANUAL';
+
 export type BarberStatusAction =
   | 'SEM_CLIENTE_CHAMADO'
   | 'CHAMOU_PROXIMO_CLIENTE'
@@ -23,11 +26,19 @@ export interface Client {
   id: string;
   nome: string;
   telefone: string;
+  telefoneNormalizado?: string; // canonical phone digits used as strong key
   dataNascimento?: string; // YYYY-MM-DD
   totalVisitas: number;
   tempoMedio: number; // EWMA
   dataCadastro: number; // timestamp
   ativo: boolean;
+  registrationStatus?: ClientRegistrationStatus;
+  createdOrigin?: ClientOrigin;
+  createdByBarber?: boolean;
+  hasCompletedSignup?: boolean;
+  completedAt?: number | null;
+  authUid?: string | null;
+  updatedAt?: number;
 }
 
 export interface Service {

@@ -48,6 +48,30 @@ service cloud.firestore {
              data.telefone is string && data.telefone.size() >= 10 && data.telefone.size() <= 11;
     }
 
+    function isClientCompletionUpdate() {
+      return resource.data.registrationStatus == 'PENDING_COMPLETION' &&
+             isValidClient(request.resource.data) &&
+             request.resource.data.registrationStatus == 'ACTIVE' &&
+             request.resource.data.hasCompletedSignup == true &&
+             request.resource.data.telefone is string &&
+             request.resource.data.telefoneNormalizado is string &&
+             request.resource.data.telefone == request.resource.data.telefoneNormalizado &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+               'nome',
+               'telefone',
+               'telefoneNormalizado',
+               'dataNascimento',
+               'registrationStatus',
+               'hasCompletedSignup',
+               'completedAt',
+               'updatedAt'
+             ]) &&
+             request.resource.data.totalVisitas == resource.data.totalVisitas &&
+             request.resource.data.tempoMedio == resource.data.tempoMedio &&
+             request.resource.data.dataCadastro == resource.data.dataCadastro &&
+             request.resource.data.ativo == resource.data.ativo;
+    }
+
     function isValidQueueItem(data) {
       return data.clienteNome is string && data.clienteNome.size() > 0 &&
              data.status in ['AGUARDANDO', 'EM_ATENDIMENTO', 'CONCLUIDO', 'CANCELADO', 'AUSENTE'];
@@ -60,12 +84,56 @@ service cloud.firestore {
       // Leitura pública: necessária para busca por telefone no fluxo do cliente
       allow get, list: if true;
       allow create: if isValidClient(request.resource.data) &&
-        hasRequiredFields(['nome', 'telefone', 'totalVisitas', 'tempoMedio', 'dataCadastro', 'ativo']) &&
-        hasOnlyAllowedFields(['nome', 'telefone', 'dataNascimento', 'totalVisitas', 'tempoMedio', 'dataCadastro', 'ativo']) &&
+        request.resource.data.telefoneNormalizado is string &&
+        request.resource.data.telefoneNormalizado.size() >= 10 &&
+        request.resource.data.telefoneNormalizado.size() <= 11 &&
+        request.resource.data.telefone == request.resource.data.telefoneNormalizado &&
+        request.resource.data.registrationStatus in ['PENDING_COMPLETION', 'ACTIVE'] &&
+        request.resource.data.createdOrigin in ['CLIENT_SELF', 'BARBER_MANUAL'] &&
+        request.resource.data.createdByBarber is bool &&
+        request.resource.data.hasCompletedSignup is bool &&
+        hasRequiredFields([
+          'nome',
+          'telefone',
+          'telefoneNormalizado',
+          'totalVisitas',
+          'tempoMedio',
+          'dataCadastro',
+          'ativo',
+          'registrationStatus',
+          'createdOrigin',
+          'createdByBarber',
+          'hasCompletedSignup',
+          'updatedAt'
+        ]) &&
+        hasOnlyAllowedFields([
+          'nome',
+          'telefone',
+          'telefoneNormalizado',
+          'dataNascimento',
+          'totalVisitas',
+          'tempoMedio',
+          'dataCadastro',
+          'ativo',
+          'registrationStatus',
+          'createdOrigin',
+          'createdByBarber',
+          'hasCompletedSignup',
+          'completedAt',
+          'updatedAt',
+          'authUid'
+        ]) &&
         request.resource.data.totalVisitas == 0 &&
         request.resource.data.tempoMedio == 0 &&
-        request.resource.data.ativo == true;
-      allow update: if isAdmin();
+        request.resource.data.ativo == true &&
+        (
+          isAdmin() ||
+          (
+            request.resource.data.createdOrigin == 'CLIENT_SELF' &&
+            request.resource.data.createdByBarber == false
+          )
+        );
+      allow update: if isAdmin() || isClientCompletionUpdate();
       allow delete: if isAdmin();
     }
 

@@ -2,6 +2,7 @@
  * Lightweight validators for user-provided form inputs.
  * Returns `null` when valid, otherwise a user-facing error message (pt-BR).
  */
+import { normalizePhone } from './utils';
 
 export function validateNome(nome: string): string | null {
   const trimmed = nome.trim();
@@ -13,7 +14,7 @@ export function validateNome(nome: string): string | null {
 }
 
 export function validateTelefone(telefone: string): string | null {
-  const digits = telefone.replace(/\D/g, '');
+  const digits = normalizePhone(telefone);
   if (digits.length === 0) return 'Informe seu WhatsApp.';
   if (digits.length < 10 || digits.length > 11) return 'WhatsApp deve ter 10 ou 11 dígitos.';
   // Brazilian mobile numbers: DDD (2) + 9 + 8 digits

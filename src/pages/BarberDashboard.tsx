@@ -22,13 +22,31 @@ import {
   Pencil,
   Trash2,
   MessageCircle,
+  GripVertical,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
 import { Timer } from '../components/Timer';
 import { ScissorsLoading } from '../components/ScissorsLoading';
 import { QueueService } from '../services/QueueService';
+import { ClientService } from '../services/ClientService';
 import { AttendanceService } from '../services/AttendanceService';
 import { ConfigService } from '../services/ConfigService';
 import { ServiceService } from '../services/ServiceService';
@@ -36,7 +54,7 @@ import { AnalyticsService } from '../services/AnalyticsService';
 import { UserService } from '../services/UserService';
 import { useQueue } from '../hooks/useQueue';
 import { useAuth } from '../hooks/useAuth';
-import { AppConfig, AppState, AppUser, UserRole } from '../types';
+import { AppConfig, AppState, AppUser, UserRole, Service, QueueItem } from '../types';
 import { cn } from '../utils';
 import { MetricsPage } from './MetricsPage';
 import { ClientsPage } from './ClientsPage';
@@ -45,6 +63,133 @@ import { ResetEstimativasModal } from '../components/ResetEstimativasModal';
 import { DelayAlertBanner } from '../components/DelayAlertBanner';
 import { AgendaControls } from '../components/AgendaControls';
 import { SettingsForm } from '../components/SettingsForm';
+import { validateNome, validateTelefone } from '../validation';
+
+interface SortableWaitingItemProps {
+  item: QueueItem;
+  index: number;
+  total: number;
+  moveToValue: string;
+  onMoveToChange: (ticketId: string, value: string) => void;
+  onMoveToSubmit: (ticketId: string) => void;
+  onMoveUp: (ticketId: string) => void;
+  onMoveDown: (ticketId: string) => void;
+  onWhatsApp: (telefone: string, clienteNome: string) => void;
+  reordering: boolean;
+}
+
+function SortableWaitingItem({
+  item,
+  index,
+  total,
+  moveToValue,
+  onMoveToChange,
+  onMoveToSubmit,
+  onMoveUp,
+  onMoveDown,
+  onWhatsApp,
+  reordering,
+}: SortableWaitingItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={cn(isDragging && 'z-20')}
+    >
+      <Card className={cn(
+        'p-3 md:p-4 flex flex-col gap-3 transition-all',
+        isDragging ? 'border-brand/40 shadow-[0_0_0_1px_rgba(0,212,165,0.35)]' : 'hover:border-brand/30'
+      )}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <button
+              type="button"
+              {...attributes}
+              {...listeners}
+              className="mt-0.5 rounded-lg border border-[#1E1E1E] bg-[#111111] p-2 text-[#64748B] touch-none"
+              aria-label={`Arrastar ${item.clienteNome}`}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+            <div className="h-8 w-8 rounded-lg bg-[#1A1A1A] flex items-center justify-center text-xs font-bold text-[#64748B] shrink-0">
+              {index + 1}
+            </div>
+            <div className="min-w-0">
+              <p className="font-bold text-[#F1F5F9] text-sm md:text-base truncate">{item.clienteNome}</p>
+              <p className="text-xs text-[#64748B] truncate">{item.servicos}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onWhatsApp(item.telefone, item.clienteNome)}
+            className="rounded-lg p-2 text-brand hover:bg-brand/10 shrink-0"
+            title="Chamar via WhatsApp"
+          >
+            <MessageCircle className="h-4 w-4 md:h-5 md:w-5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-10 min-w-10 px-2"
+              onClick={() => onMoveUp(item.id)}
+              disabled={index === 0 || reordering}
+            >
+              <ArrowUp className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-10 min-w-10 px-2"
+              onClick={() => onMoveDown(item.id)}
+              disabled={index === total - 1 || reordering}
+            >
+              <ArrowDown className="h-4 w-4" />
+            </Button>
+            <span className="text-xs text-[#64748B]">Previsto: {item.horaPrevista}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              max={total}
+              value={moveToValue}
+              onChange={(e) => onMoveToChange(item.id, e.target.value)}
+              className="h-10 w-16 rounded-lg border border-[#1E1E1E] bg-[#111111] px-2 text-center text-sm text-[#F1F5F9] focus:outline-none focus:border-brand"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-10 flex-1"
+              onClick={() => onMoveToSubmit(item.id)}
+              disabled={reordering}
+            >
+              Mover
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
 
 export function BarberDashboard() {
   const navigate = useNavigate();
@@ -58,7 +203,7 @@ export function BarberDashboard() {
   const [state, setState] = useState<AppState | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'PAUSE_TIME' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | 'RESET_ESTIMATIVAS' | null>(null);
+  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'PAUSE_TIME' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | 'RESET_ESTIMATIVAS' | 'ADD_MANUAL_CLIENT' | null>(null);
   const [pauseMinutes, setPauseMinutes] = useState<number>(15);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [tempConfig, setTempConfig] = useState<AppConfig | null>(null);
@@ -76,9 +221,30 @@ export function BarberDashboard() {
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [delayMinutes, setDelayMinutes] = useState<number>(0);
   const [showDelayAlert, setShowDelayAlert] = useState<boolean>(false);
+  const [availableServices, setAvailableServices] = useState<Service[]>([]);
+  const [manualForm, setManualForm] = useState<{
+    nome: string;
+    telefone: string;
+    serviceIds: string[];
+    position: string;
+  }>({
+    nome: '',
+    telefone: '',
+    serviceIds: [],
+    position: '1',
+  });
+  const [manualFormError, setManualFormError] = useState<string | null>(null);
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [reordering, setReordering] = useState(false);
+  const [positionDrafts, setPositionDrafts] = useState<Record<string, string>>({});
   const [skipPauseConfirm, setSkipPauseConfirm] = useState<boolean>(() => {
     return localStorage.getItem('sq_skip_pause_confirm') === 'true';
   });
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
 
   useEffect(() => {
     if (isAdmin && config && state) {
@@ -98,6 +264,9 @@ export function BarberDashboard() {
       });
       ServiceService.initialize().catch(err => {
         console.error('Service init error:', err);
+      });
+      ServiceService.listActive().then(setAvailableServices).catch(err => {
+        console.error('Service list error:', err);
       });
     }
 
@@ -151,6 +320,16 @@ export function BarberDashboard() {
     }
     prevWaitingLengthRef.current = waiting.length;
   }, [waiting.length, config]);
+
+  useEffect(() => {
+    setPositionDrafts(prev => {
+      const next: Record<string, string> = {};
+      waiting.forEach((item, index) => {
+        next[item.id] = prev[item.id] ?? String(index + 1);
+      });
+      return next;
+    });
+  }, [waiting]);
 
   // Auto-update barber status based on queue state
   useEffect(() => {
@@ -359,6 +538,155 @@ export function BarberDashboard() {
     }
   };
 
+  const openAddManualClientModal = () => {
+    ServiceService.listActive().then(setAvailableServices).catch(() => {});
+    setManualForm({
+      nome: '',
+      telefone: '',
+      serviceIds: [],
+      position: String(waiting.length + 1),
+    });
+    setManualFormError(null);
+    setModalType('ADD_MANUAL_CLIENT');
+    setIsModalOpen(true);
+  };
+
+  const toggleManualService = (serviceId: string) => {
+    setManualForm(prev => ({
+      ...prev,
+      serviceIds: prev.serviceIds.includes(serviceId)
+        ? prev.serviceIds.filter(id => id !== serviceId)
+        : [...prev.serviceIds, serviceId],
+    }));
+  };
+
+  const moveQueueTicket = async (ticketId: string, position: number) => {
+    if (!config) return;
+    setReordering(true);
+    setPositionDrafts(prev => ({ ...prev, [ticketId]: String(position) }));
+    try {
+      await QueueService.reorderQueue(ticketId, position, config, selectedQueueDate);
+      setError(null);
+    } catch (err: any) {
+      let message = 'Erro ao mover cliente na fila.';
+      try {
+        const parsed = JSON.parse(err.message);
+        message = parsed.error || message;
+      } catch {
+        message = err.message || message;
+      }
+      setError(message);
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const handleMoveUp = async (ticketId: string) => {
+    const index = waiting.findIndex(item => item.id === ticketId);
+    if (index <= 0) return;
+    await moveQueueTicket(ticketId, index);
+  };
+
+  const handleMoveDown = async (ticketId: string) => {
+    const index = waiting.findIndex(item => item.id === ticketId);
+    if (index < 0 || index >= waiting.length - 1) return;
+    await moveQueueTicket(ticketId, index + 2);
+  };
+
+  const handlePositionDraftChange = (ticketId: string, value: string) => {
+    setPositionDrafts(prev => ({ ...prev, [ticketId]: value }));
+  };
+
+  const handlePositionDraftSubmit = async (ticketId: string) => {
+    const raw = positionDrafts[ticketId];
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) {
+      setError('Informe uma posição válida.');
+      return;
+    }
+    const nextPosition = Math.min(Math.max(Math.trunc(parsed), 1), waiting.length);
+    await moveQueueTicket(ticketId, nextPosition);
+  };
+
+  const handleQueueDragEnd = async (event: DragEndEvent) => {
+    if (reordering) return;
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = waiting.findIndex(item => item.id === active.id);
+    const newIndex = waiting.findIndex(item => item.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    await moveQueueTicket(String(active.id), newIndex + 1);
+  };
+
+  const handleAddManualClientToQueue = async () => {
+    if (!config) {
+      setManualFormError('Configuração indisponível. Recarregue a página.');
+      return;
+    }
+
+    const nomeError = validateNome(manualForm.nome);
+    if (nomeError) {
+      setManualFormError(nomeError);
+      return;
+    }
+
+    const telefoneError = validateTelefone(manualForm.telefone);
+    if (telefoneError) {
+      setManualFormError(telefoneError);
+      return;
+    }
+
+    if (manualForm.serviceIds.length === 0) {
+      setManualFormError('Selecione ao menos um serviço.');
+      return;
+    }
+
+    const desiredPositionRaw = Number(manualForm.position);
+    const desiredPosition = Number.isFinite(desiredPositionRaw)
+      ? Math.min(Math.max(Math.trunc(desiredPositionRaw), 1), waiting.length + 1)
+      : waiting.length + 1;
+
+    const selectedServices = availableServices.filter(service => manualForm.serviceIds.includes(service.id));
+    if (!selectedServices.length) {
+      setManualFormError('Não foi possível carregar os serviços selecionados.');
+      return;
+    }
+
+    setManualSubmitting(true);
+    setManualFormError(null);
+
+    try {
+      const upsert = await ClientService.createOrReuseManualClient(manualForm.nome, manualForm.telefone);
+      const existingTicket = await QueueService.findActiveTicketByClient(upsert.client.id, selectedQueueDate);
+
+      if (existingTicket) {
+        setError(`Cliente já estava na fila na posição ${existingTicket.posicao}.`);
+      } else {
+        await QueueService.addToQueue(upsert.client, selectedServices, config, selectedQueueDate, {
+          manual: true,
+          desiredPosition,
+        });
+        setError(null);
+      }
+
+      setIsModalOpen(false);
+      setModalType(null);
+    } catch (err: any) {
+      let message = 'Erro ao adicionar cliente manualmente.';
+      try {
+        const parsed = JSON.parse(err.message);
+        message = parsed.error || message;
+      } catch {
+        message = err.message || message;
+      }
+      setManualFormError(message);
+    } finally {
+      setManualSubmitting(false);
+    }
+  };
+
   const openManageUsers = async () => {
     setShowAddUserForm(false);
     setNewUser({ email: '', nome: '', role: 'BARBEIRO' });
@@ -434,6 +762,7 @@ export function BarberDashboard() {
       await ServiceService.create({ ...newService, ativo: true });
       const list = await ServiceService.listAll();
       setServices(list);
+      setAvailableServices(await ServiceService.listActive());
       setShowAddServiceForm(false);
       setNewService({ nome: '', tempoBase: 30, preco: 0 });
     } catch (err: any) {
@@ -454,6 +783,7 @@ export function BarberDashboard() {
       await ServiceService.update(editingService);
       const list = await ServiceService.listAll();
       setServices(list);
+      setAvailableServices(await ServiceService.listActive());
       setEditingService(null);
     } catch (err: any) {
       setServiceError(err.message || 'Erro ao atualizar serviço.');
@@ -469,6 +799,7 @@ export function BarberDashboard() {
       await ServiceService.delete(id);
       const list = await ServiceService.listAll();
       setServices(list);
+      setAvailableServices(await ServiceService.listActive());
     } catch (err: any) {
       setServiceError(err.message || 'Erro ao excluir serviço.');
     } finally {
@@ -480,6 +811,7 @@ export function BarberDashboard() {
     try {
       await ServiceService.update({ ...s, ativo: !s.ativo });
       setServices(prev => prev.map(x => x.id === s.id ? { ...x, ativo: !s.ativo } : x));
+      setAvailableServices(await ServiceService.listActive());
     } catch {
       setServiceError('Erro ao atualizar serviço.');
     }
@@ -713,7 +1045,7 @@ export function BarberDashboard() {
             )}
           </div>
 
-          <div className="flex items-center justify-between ml-1">
+          <div className="flex items-center justify-between gap-3 ml-1">
             <h2 className="text-xs font-bold uppercase tracking-widest text-[#64748B]">
               {isViewingFutureDate ? 'Agendamentos do Dia' : 'Próximos na Fila'}
             </h2>
@@ -721,39 +1053,50 @@ export function BarberDashboard() {
               {waiting.length} cliente{waiting.length !== 1 ? 's' : ''}
             </span>
           </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-[#64748B]">Arraste para reordenar ou ajuste a posição manualmente.</p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={openAddManualClientModal}
+              className="w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar manual
+            </Button>
+          </div>
           <div className="space-y-2 md:space-y-3">
-            {waiting.map((item, index) => (
-              <Card key={item.id} className="p-3 md:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 group hover:border-brand/30 transition-all">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl bg-[#1A1A1A] flex items-center justify-center text-xs md:text-sm font-bold text-[#64748B] shrink-0">
-                    {index + 1}
+            {waiting.length > 0 && (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleQueueDragEnd}
+              >
+                <SortableContext
+                  items={waiting.map(item => item.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2 md:space-y-3">
+                    {waiting.map((item, index) => (
+                      <SortableWaitingItem
+                        key={item.id}
+                        item={item}
+                        index={index}
+                        total={waiting.length}
+                        moveToValue={positionDrafts[item.id] ?? String(index + 1)}
+                        onMoveToChange={handlePositionDraftChange}
+                        onMoveToSubmit={handlePositionDraftSubmit}
+                        onMoveUp={handleMoveUp}
+                        onMoveDown={handleMoveDown}
+                        onWhatsApp={handleWhatsApp}
+                        reordering={reordering}
+                      />
+                    ))}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-[#F1F5F9] text-sm md:text-base truncate">{item.clienteNome}</p>
-                    <p className="text-xs text-[#64748B] truncate">{item.servicos}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-3 sm:gap-3">
-                  <button
-                    onClick={() => handleWhatsApp(item.telefone, item.clienteNome)}
-                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 md:p-2 hover:bg-brand/10 rounded-lg shrink-0"
-                    title="Chamar via WhatsApp"
-                  >
-                    <MessageCircle className="h-4 w-4 md:h-5 md:w-5 text-brand" />
-                  </button>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs md:text-sm font-bold text-[#F1F5F9]">
-                      {typeof item.horaPrevista === 'string'
-                        ? item.horaPrevista.match(/^\d{2}:\d{2}/)
-                          ? item.horaPrevista
-                          : item.horaPrevista.substring(0, 5)
-                        : '00:00'}
-                    </p>
-                    <p className="text-[9px] md:text-[10px] uppercase tracking-wider text-[#64748B] font-bold">Previsto</p>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </SortableContext>
+              </DndContext>
+            )}
             {waiting.length === 0 && (
               <div className="py-12 text-center space-y-2">
                 <p className="text-[#64748B] font-medium">
@@ -807,7 +1150,12 @@ export function BarberDashboard() {
       {/* Action Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          if (modalType === 'ADD_MANUAL_CLIENT') {
+            setManualFormError(null);
+          }
+        }}
         title={
           modalType === 'FINALIZE' ? 'Finalizar Atendimento' :
           modalType === 'ABSENT' ? 'Marcar como Ausente' :
@@ -821,7 +1169,8 @@ export function BarberDashboard() {
           modalType === 'SETTINGS' ? 'Configurações Automáticas' :
           modalType === 'MANAGE_USERS' ? 'Gerenciar Usuários' :
           modalType === 'MANAGE_SERVICES' ? 'Gerenciar Serviços' :
-          modalType === 'RESET_ESTIMATIVAS' ? 'Estimativas de Tempo' : 'Fechar Agenda'
+          modalType === 'RESET_ESTIMATIVAS' ? 'Estimativas de Tempo' :
+          modalType === 'ADD_MANUAL_CLIENT' ? 'Adicionar Cliente Manualmente' : 'Fechar Agenda'
         }
         footer={
           modalType === 'PAUSE_TIME' ? (
@@ -855,6 +1204,25 @@ export function BarberDashboard() {
                 </Button>
               </div>
             </>
+          ) : modalType === 'ADD_MANUAL_CLIENT' ? (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setManualFormError(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleAddManualClientToQueue}
+                loading={manualSubmitting}
+              >
+                Adicionar na Fila
+              </Button>
+            </>
           ) : modalType !== 'MANAGE_USERS' && modalType !== 'MANAGE_SERVICES' && modalType !== 'RESET_ESTIMATIVAS' ? (
             <>
               <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
@@ -869,7 +1237,68 @@ export function BarberDashboard() {
           ) : undefined
         }
       >
-        {modalType === 'MANAGE_USERS' ? (
+        {modalType === 'ADD_MANUAL_CLIENT' ? (
+          <div className="space-y-4">
+            {manualFormError && (
+              <div className="p-3 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {manualFormError}
+              </div>
+            )}
+            <div className="rounded-xl border border-brand/20 bg-brand/5 p-3 text-xs text-[#64748B]">
+              {selectedQueueDate === today
+                ? 'Cliente será adicionado para hoje.'
+                : `Cliente será adicionado para ${selectedQueueDate}.`}
+            </div>
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="Nome do cliente"
+                value={manualForm.nome}
+                onChange={e => setManualForm(prev => ({ ...prev, nome: e.target.value }))}
+                className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
+              />
+              <input
+                type="tel"
+                placeholder="WhatsApp (somente números)"
+                value={manualForm.telefone}
+                onChange={e => setManualForm(prev => ({ ...prev, telefone: e.target.value.replace(/\D/g, '') }))}
+                className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
+              />
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Serviços</p>
+                <div className="flex flex-wrap gap-2">
+                  {availableServices.map(service => (
+                    <button
+                      key={service.id}
+                      type="button"
+                      onClick={() => toggleManualService(service.id)}
+                      className={cn(
+                        'inline-flex min-h-10 items-center justify-center rounded-full border px-3 py-2 text-xs font-medium transition-all',
+                        manualForm.serviceIds.includes(service.id)
+                          ? 'bg-brand/10 border-brand text-brand'
+                          : 'bg-[#111111] border-[#1E1E1E] text-[#64748B] hover:border-brand/40'
+                      )}
+                    >
+                      {service.nome}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Posição na fila</p>
+                <input
+                  type="number"
+                  min={1}
+                  max={waiting.length + 1}
+                  value={manualForm.position}
+                  onChange={e => setManualForm(prev => ({ ...prev, position: e.target.value }))}
+                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
+                />
+              </div>
+            </div>
+          </div>
+        ) : modalType === 'MANAGE_USERS' ? (
           <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
             {userError && (
               <div className="p-3 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm flex items-center gap-2">

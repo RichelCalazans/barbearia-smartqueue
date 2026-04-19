@@ -4,23 +4,57 @@ import {
   where,
   orderBy,
   onSnapshot,
-  addDoc,
   updateDoc,
   doc,
   getDocs,
   getDoc,
   writeBatch,
   runTransaction,
-  Timestamp,
-  serverTimestamp
 } from 'firebase/firestore';
 
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { QueueItem, QueueStatus, Client, Service, AppConfig } from '../types';
 import { TimePredictorService } from './TimePredictorService';
+import { maskPhone, normalizePhone } from '../utils';
+
+interface AddToQueueOptions {
+  manual?: boolean;
+  desiredPosition?: number | null;
+}
 
 export class QueueService {
   private static COLLECTION = 'queue';
+
+  private static getToday(): string {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  private static buildActiveQueueQuery(targetDate: string) {
+    return query(
+      collection(db, this.COLLECTION),
+      where('data', '==', targetDate),
+      where('status', 'in', ['AGUARDANDO', 'EM_ATENDIMENTO']),
+      orderBy('posicao', 'asc')
+    );
+  }
+
+  /**
+   * Returns an active ticket for a client in a given date (if any).
+   */
+  static async findActiveTicketByClient(clientId: string, targetDate?: string): Promise<QueueItem | null> {
+    const path = this.COLLECTION;
+    try {
+      const date = targetDate || this.getToday();
+      const snapshot = await getDocs(this.buildActiveQueueQuery(date));
+      const ticket = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() } as QueueItem))
+        .find(item => item.clienteId === clientId);
+      return ticket || null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, path);
+      return null;
+    }
+  }
 
   /**
    * Adds a client to the daily queue.
@@ -29,78 +63,94 @@ export class QueueService {
     client: Client,
     services: Service[],
     config: AppConfig,
-    scheduledDate?: string // YYYY-MM-DD, defaults to today if not provided
+    scheduledDate?: string,
+    options: AddToQueueOptions = {}
   ): Promise<string> {
     const path = this.COLLECTION;
     try {
-      // Use provided date or today
-      const targetDate = scheduledDate || new Date().toISOString().split('T')[0];
-
-      // 1. Get current queue for the target date to calculate position and time
-      const q = query(
-        collection(db, path),
-        where('data', '==', targetDate),
-        where('status', 'in', ['AGUARDANDO', 'EM_ATENDIMENTO']),
-        orderBy('posicao', 'asc')
-      );
-      const snapshot = await getDocs(q);
-      const currentQueue = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as QueueItem));
-
-      // Prevent duplicate: same client already waiting/being served on this date
-      const existing = currentQueue.find(item => item.clienteId === client.id);
-      if (existing) {
-        throw new Error('Você já está na fila para este dia.');
+      if (!services.length) {
+        throw new Error('Selecione ao menos um serviço.');
       }
 
-      if (currentQueue.length >= config.MAX_DAILY_CLIENTS) {
-        throw new Error('Fila cheia para este dia.');
-      }
-
-      // 2. Calculate position
-      const lastItem = currentQueue[currentQueue.length - 1];
-      const position = (lastItem?.posicao || 0) + 1;
-
-      // 3. Calculate estimated time
+      const targetDate = scheduledDate || this.getToday();
+      const now = Date.now();
       const baseTime = services.reduce((sum, s) => sum + s.tempoBase, 0);
       const predictedTime = TimePredictorService.predictServiceTime(client, baseTime, config);
+      const normalizedPhone = normalizePhone(client.telefoneNormalizado || client.telefone);
 
-      // 4. Calculate predicted start time
-      let predictedStartTime = config.OPENING_TIME;
-      if (lastItem) {
-        predictedStartTime = TimePredictorService.addMinutes(
-          lastItem.horaPrevista,
-          lastItem.tempoEstimado + config.BUFFER_MINUTES
-        );
-      } else {
-        // If first of the day, check if it's today and current time is after opening time
-        const today = new Date().toISOString().split('T')[0];
-        if (targetDate === today) {
-          const now = new Date();
-          const currentHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-          if (currentHHMM > config.OPENING_TIME) {
-            predictedStartTime = currentHHMM;
-          }
+      let createdTicketId = '';
+
+      await runTransaction(db, async (transaction) => {
+        const snapshot = await getDocs(this.buildActiveQueueQuery(targetDate));
+        const activeQueue = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as QueueItem));
+
+        const alreadyInQueue = activeQueue.find(item => item.clienteId === client.id);
+        if (alreadyInQueue) {
+          throw new Error('Este cliente já está na fila para este dia.');
         }
+
+        if (activeQueue.length >= config.MAX_DAILY_CLIENTS) {
+          throw new Error('Fila cheia para este dia.');
+        }
+
+        const inServiceQueue = activeQueue.filter(item => item.status === 'EM_ATENDIMENTO');
+        const waitingQueue = activeQueue.filter(item => item.status === 'AGUARDANDO');
+
+        const requestedPosition =
+          typeof options.desiredPosition === 'number'
+            ? Math.trunc(options.desiredPosition)
+            : waitingQueue.length + 1;
+
+        const insertWaitingIndex = Math.min(
+          Math.max(requestedPosition - 1, 0),
+          waitingQueue.length
+        );
+
+        const newDocRef = doc(collection(db, path));
+        const newQueueItem: QueueItem = {
+          id: newDocRef.id,
+          posicao: 0,
+          clienteId: client.id,
+          clienteNome: client.nome,
+          servicos: services.map(s => s.nome).join(', '),
+          servicosIds: services.map(s => s.id),
+          tempoEstimado: predictedTime,
+          horaPrevista: config.OPENING_TIME,
+          status: 'AGUARDANDO',
+          horaEntrada: now,
+          data: targetDate,
+          telefone: maskPhone(normalizedPhone),
+          manual: options.manual ?? false,
+        };
+
+        const reorderedWaiting = [...waitingQueue];
+        reorderedWaiting.splice(insertWaitingIndex, 0, newQueueItem);
+
+        const normalizedQueue = [...inServiceQueue, ...reorderedWaiting];
+
+        normalizedQueue.forEach((item, index) => {
+          const nextPosition = index + 1;
+
+          if (item.id === newDocRef.id) {
+            transaction.set(newDocRef, {
+              ...newQueueItem,
+              posicao: nextPosition,
+            });
+            createdTicketId = newDocRef.id;
+            return;
+          }
+
+          if (item.posicao !== nextPosition) {
+            transaction.update(doc(db, path, item.id), { posicao: nextPosition });
+          }
+        });
+      });
+
+      if (createdTicketId) {
+        await this.recalculateQueue(config, targetDate);
       }
 
-      // 5. Create queue item
-      const newItem: Partial<QueueItem> = {
-        posicao: position,
-        clienteId: client.id,
-        clienteNome: client.nome,
-        servicos: services.map(s => s.nome).join(', '),
-        servicosIds: services.map(s => s.id),
-        tempoEstimado: predictedTime,
-        horaPrevista: predictedStartTime,
-        status: 'AGUARDANDO',
-        horaEntrada: Date.now(),
-        data: targetDate,
-        telefone: client.telefone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) *****-$3'),
-        manual: false,
-      };
-
-      const docRef = await addDoc(collection(db, path), newItem);
-      return docRef.id;
+      return createdTicketId;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
       return '';
@@ -123,7 +173,7 @@ export class QueueService {
   static async updateStatus(id: string, status: QueueStatus): Promise<void> {
     const path = `${this.COLLECTION}/${id}`;
     try {
-      const updates: any = { status };
+      const updates: Record<string, unknown> = { status };
       if (status === 'EM_ATENDIMENTO') {
         updates.horaChamada = Date.now();
       } else if (status === 'CONCLUIDO' || status === 'CANCELADO' || status === 'AUSENTE') {
@@ -139,17 +189,12 @@ export class QueueService {
    * Checks if a date has available slots in the queue.
    */
   static async checkDateAvailability(
-    dateString: string, // YYYY-MM-DD
+    dateString: string,
     config: AppConfig
   ): Promise<{ available: boolean; totalSlots: number; remainingSlots: number }> {
     const path = this.COLLECTION;
     try {
-      const q = query(
-        collection(db, path),
-        where('data', '==', dateString),
-        where('status', 'in', ['AGUARDANDO', 'EM_ATENDIMENTO'])
-      );
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(this.buildActiveQueueQuery(dateString));
       const count = snapshot.size;
 
       return {
@@ -159,66 +204,69 @@ export class QueueService {
       };
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, path);
-      // On error, default to available to avoid blocking users
-      // The actual validation will happen when they try to join the queue
       return { available: true, totalSlots: config.MAX_DAILY_CLIENTS, remainingSlots: config.MAX_DAILY_CLIENTS };
     }
   }
 
   /**
-   * Recalculates the predicted times for the entire queue.
+   * Recalculates predicted times for the queue of a specific date.
    */
-  static async recalculateQueue(config: AppConfig): Promise<void> {
+  static async recalculateQueue(config: AppConfig, targetDate?: string): Promise<void> {
     const path = this.COLLECTION;
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const q = query(
-        collection(db, path),
-        where('data', '==', today),
-        where('status', 'in', ['AGUARDANDO', 'EM_ATENDIMENTO']),
-        orderBy('posicao', 'asc')
-      );
-      const snapshot = await getDocs(q);
+      const date = targetDate || this.getToday();
+      const snapshot = await getDocs(this.buildActiveQueueQuery(date));
       const queue = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as QueueItem));
 
       if (queue.length === 0) return;
 
-      const stateDoc = await getDoc(doc(db, 'config', 'state'));
-      const state = stateDoc.exists() ? stateDoc.data() : { agendaPausada: false, tempoRetomada: null };
-
-      const batch = writeBatch(db);
+      const isToday = date === this.getToday();
       const now = new Date();
       const currentHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-      let lastTime = currentHHMM > config.OPENING_TIME ? currentHHMM : config.OPENING_TIME;
-
       let pauseMinutesRemaining = 0;
-      if (state.agendaPausada && state.tempoRetomada) {
-        pauseMinutesRemaining = Math.max(0, Math.ceil((state.tempoRetomada - Date.now()) / 60000));
+      if (isToday) {
+        const stateDoc = await getDoc(doc(db, 'config', 'state'));
+        const state = stateDoc.exists() ? stateDoc.data() : { agendaPausada: false, tempoRetomada: null };
+        if (state.agendaPausada && state.tempoRetomada) {
+          pauseMinutesRemaining = Math.max(0, Math.ceil((state.tempoRetomada - Date.now()) / 60000));
+        }
       }
 
-      for (let i = 0; i < queue.length; i++) {
-        const item = queue[i];
+      const initialTime = isToday && currentHHMM > config.OPENING_TIME
+        ? currentHHMM
+        : config.OPENING_TIME;
+
+      let lastTime = pauseMinutesRemaining > 0
+        ? TimePredictorService.addMinutes(initialTime, pauseMinutesRemaining)
+        : initialTime;
+
+      const batch = writeBatch(db);
+
+      for (const item of queue) {
         if (item.status === 'EM_ATENDIMENTO') {
-          const elapsed = (Date.now() - (item.horaChamada || Date.now())) / 60000;
-          const remaining = Math.max(0, item.tempoEstimado - elapsed);
-          let baseTime = TimePredictorService.addMinutes(currentHHMM, remaining + config.BUFFER_MINUTES);
-          if (pauseMinutesRemaining > 0) {
-            baseTime = TimePredictorService.addMinutes(baseTime, pauseMinutesRemaining);
-          }
-          lastTime = baseTime;
-        } else {
-          let horaPrevista: string;
-          if (i === 0 && !queue.some(it => it.status === 'EM_ATENDIMENTO')) {
-            horaPrevista = currentHHMM > config.OPENING_TIME ? currentHHMM : config.OPENING_TIME;
-            if (pauseMinutesRemaining > 0) {
-              horaPrevista = TimePredictorService.addMinutes(horaPrevista, pauseMinutesRemaining);
-            }
+          if (isToday) {
+            const elapsed = (Date.now() - (item.horaChamada || Date.now())) / 60000;
+            const remaining = Math.max(0, item.tempoEstimado - elapsed);
+            lastTime = TimePredictorService.addMinutes(
+              currentHHMM,
+              remaining + config.BUFFER_MINUTES + pauseMinutesRemaining
+            );
           } else {
-            horaPrevista = lastTime;
+            const referenceStart = item.horaPrevista || config.OPENING_TIME;
+            lastTime = TimePredictorService.addMinutes(
+              referenceStart,
+              item.tempoEstimado + config.BUFFER_MINUTES
+            );
           }
-          batch.update(doc(db, this.COLLECTION, item.id), { horaPrevista });
-          lastTime = TimePredictorService.addMinutes(horaPrevista, item.tempoEstimado + config.BUFFER_MINUTES);
+          continue;
         }
+
+        const horaPrevista = lastTime;
+        batch.update(doc(db, this.COLLECTION, item.id), { horaPrevista });
+        lastTime = TimePredictorService.addMinutes(
+          horaPrevista,
+          item.tempoEstimado + config.BUFFER_MINUTES
+        );
       }
 
       await batch.commit();
@@ -230,43 +278,45 @@ export class QueueService {
   static async reorderQueue(
     ticketId: string,
     newPosition: number,
-    config: AppConfig
+    config: AppConfig,
+    scheduledDate?: string
   ): Promise<void> {
     const path = this.COLLECTION;
     try {
+      const targetDate = scheduledDate || this.getToday();
+
       await runTransaction(db, async (transaction) => {
-        const today = new Date().toISOString().split('T')[0];
-        const q = query(
-          collection(db, path),
-          where('data', '==', today),
-          where('status', 'in', ['AGUARDANDO']),
-          orderBy('posicao', 'asc')
-        );
-        const snapshot = await getDocs(q);
-        const queue = snapshot.docs.map(d => ({ id: d.id, posicao: d.data().posicao } as { id: string; posicao: number }));
+        const snapshot = await getDocs(this.buildActiveQueueQuery(targetDate));
+        const activeQueue = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as QueueItem));
 
-        const itemIndex = queue.findIndex(item => item.id === ticketId);
+        const inServiceQueue = activeQueue.filter(item => item.status === 'EM_ATENDIMENTO');
+        const waitingQueue = activeQueue.filter(item => item.status === 'AGUARDANDO');
+
+        const itemIndex = waitingQueue.findIndex(item => item.id === ticketId);
         if (itemIndex === -1) {
-          throw new Error('Cliente não encontrado na fila');
+          throw new Error('Cliente não encontrado na fila de espera.');
         }
 
-        const currentPosition = queue[itemIndex].posicao;
-        if (currentPosition === newPosition) return;
+        const targetWaitingPosition = Math.min(
+          Math.max(Math.trunc(newPosition), 1),
+          waitingQueue.length
+        );
 
-        const updatedQueue = [...queue];
-        updatedQueue.splice(itemIndex, 1);
-        updatedQueue.splice(newPosition - 1, 0, { id: ticketId, posicao: newPosition });
+        const reorderedWaiting = [...waitingQueue];
+        const [movedItem] = reorderedWaiting.splice(itemIndex, 1);
+        reorderedWaiting.splice(targetWaitingPosition - 1, 0, movedItem);
 
-        for (let i = 0; i < updatedQueue.length; i++) {
-          const item = updatedQueue[i];
-          const newPos = i + 1;
-          if (item.posicao !== newPos) {
-            transaction.update(doc(db, path, item.id), { posicao: newPos });
+        const normalizedQueue = [...inServiceQueue, ...reorderedWaiting];
+
+        normalizedQueue.forEach((item, index) => {
+          const nextPosition = index + 1;
+          if (item.posicao !== nextPosition) {
+            transaction.update(doc(db, path, item.id), { posicao: nextPosition });
           }
-        }
+        });
       });
 
-      await this.recalculateQueue(config);
+      await this.recalculateQueue(config, targetDate);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }

@@ -7,6 +7,28 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Normalizes phone numbers to 10/11-digit Brazilian format.
+ * - strips non-digits
+ * - removes leading country code 55 when present
+ */
+export function normalizePhone(input: string): string {
+  const onlyDigits = (input || '').replace(/\D/g, '');
+  if ((onlyDigits.length === 12 || onlyDigits.length === 13) && onlyDigits.startsWith('55')) {
+    return onlyDigits.slice(2);
+  }
+  return onlyDigits;
+}
+
+export function maskPhone(phone: string): string {
+  const digits = normalizePhone(phone);
+  if (digits.length < 10) return digits;
+  if (digits.length === 10) {
+    return digits.replace(/(\d{2})(\d{4})(\d{4})/, '($1) ****-$3');
+  }
+  return digits.replace(/(\d{2})(\d{5})(\d{4})/, '($1) *****-$3');
+}
+
+/**
  * Gets the day of week (0-6) from a date string (YYYY-MM-DD)
  */
 export function getDayOfWeek(dateString: string): number {

@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, CheckCircle2, XCircle, Clock, AlertCircle, Scissors, Calendar } from 'lucide-react';
+import { User, Clock, AlertCircle, Scissors, Calendar } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -15,8 +15,8 @@ import { QueueService } from '../services/QueueService';
 import { ConfigService } from '../services/ConfigService';
 import { useQueue } from '../hooks/useQueue';
 import { useApp } from '../contexts/AppContext';
-import { Service, QueueItem, AppConfig, AppState } from '../types';
-import { getAvailableDates, getScheduleForDate, formatDateDisplay } from '../utils';
+import { Service, QueueItem, AppConfig, AppState, Client } from '../types';
+import { getAvailableDates, getScheduleForDate } from '../utils';
 import {
   validateNome,
   validateTelefone,
@@ -58,7 +58,8 @@ export function ClientView() {
   const [telefone, setTelefone] = useState('');
   const [dataNascimento, setDataNascimento] = useState('');
   const [dataAgendamento, setDataAgendamento] = useState('');
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [matchedClient, setMatchedClient] = useState<Client | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ticketId, setTicketId] = useState<string | null>(() => localStorage.getItem('sq_ticket_id'));
   const [activeTicket, setActiveTicket] = useState<QueueItem | null>(null);
@@ -239,10 +240,16 @@ export function ClientView() {
     try {
       const client = await ClientService.findByTelefone(telefone);
       if (client) {
+        setMatchedClient(client);
         setNome(client.nome);
         setDataNascimento(client.dataNascimento || '');
-        setStep(4);
+        if (client.registrationStatus === 'ACTIVE' || client.hasCompletedSignup) {
+          setStep(4);
+        } else {
+          setStep(5);
+        }
       } else {
+        setMatchedClient(null);
         setStep(3);
       }
     } catch (err: any) {
@@ -279,8 +286,8 @@ export function ClientView() {
       setError(telefoneError);
       return;
     }
-    // Birth date is only required for new clients (step 3)
-    if (step === 3) {
+    // Birth date is required for new clients and pre-registration completion.
+    if (step === 3 || step === 5) {
       const birthError = validateDataNascimento(dataNascimento);
       if (birthError) {
         setError(birthError);
@@ -299,13 +306,41 @@ export function ClientView() {
     setSubmitting(true);
     setError(null);
     try {
-      const { client } = await ClientService.findOrCreate(nome, telefone, dataNascimento);
+      let client: Client;
+
+      if (step === 5 && matchedClient) {
+        client = await ClientService.completeExistingClientRegistration(matchedClient.id, {
+          nome,
+          telefone,
+          dataNascimento,
+        });
+      } else if (step === 4 && matchedClient) {
+        client = matchedClient;
+      } else {
+        const createdOrFound = await ClientService.findOrCreate(
+          nome,
+          telefone,
+          step === 3 ? dataNascimento : undefined
+        );
+        client = createdOrFound.client;
+      }
+
       const chosenServices = services.filter(s => selectedServices.includes(s.id));
 
       // Request browser notification permission
       await NotificationService.requestPermission();
 
+      const existingTicket = await QueueService.findActiveTicketByClient(client.id, targetDate);
+      if (existingTicket) {
+        localStorage.setItem('sq_ticket_id', existingTicket.id);
+        setTicketId(existingTicket.id);
+        return;
+      }
+
       const newTicketId = await QueueService.addToQueue(client, chosenServices, config, targetDate);
+      if (!newTicketId) {
+        throw new Error('Não foi possível entrar na fila. Tente novamente.');
+      }
       localStorage.setItem('sq_ticket_id', newTicketId);
       setTicketId(newTicketId);
     } catch (err: any) {
@@ -338,6 +373,7 @@ export function ClientView() {
       setSelectedDateInfo(null);
       setShowDateSelector(false);
       setStep(1);
+      setMatchedClient(null);
       setError(null);
     } catch (err) {
       setError('Erro ao cancelar. Tente novamente.');
@@ -754,12 +790,24 @@ export function ClientView() {
                     label="Seu WhatsApp"
                     placeholder="(00) 00000-0000"
                     value={telefone}
-                    onChange={(e) => setTelefone(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => {
+                      setTelefone(e.target.value.replace(/\D/g, ''));
+                      setMatchedClient(null);
+                    }}
                     required
                   />
                 </div>
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
-                  <Button variant="ghost" onClick={() => setStep(1)} className="w-full sm:flex-1">Voltar</Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setMatchedClient(null);
+                      setStep(1);
+                    }}
+                    className="w-full sm:flex-1"
+                  >
+                    Voltar
+                  </Button>
                   <Button
                     type="submit"
                     className="h-12 w-full font-bold sm:h-14 sm:flex-[2] sm:text-lg"
@@ -837,6 +885,45 @@ export function ClientView() {
                   </Button>
                 </div>
               </motion.div>
+            )}
+
+            {step === 5 && (
+              <motion.form
+                key="step5"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                onSubmit={handleJoinQueue}
+                className="space-y-6 sm:space-y-8"
+              >
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-brand/30 bg-brand/10 p-3 text-sm text-brand">
+                    Encontramos seu pré-cadastro. Complete apenas os dados faltantes para continuar.
+                  </div>
+                  <Input
+                    label="Nome Completo"
+                    placeholder="Ex: João Silva"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                    required
+                  />
+                  <Input
+                    label="Data de Nascimento"
+                    type="text"
+                    placeholder="DD/MM/YYYY"
+                    value={dataNascimento.includes('-') ? dataNascimento.split('-').reverse().join('/') : dataNascimento}
+                    onChange={(e) => handleDateNascimentoChange(e.target.value)}
+                    maxLength={10}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
+                  <Button variant="ghost" onClick={() => setStep(2)} className="w-full sm:flex-1">Voltar</Button>
+                  <Button type="submit" className="h-12 w-full font-bold sm:h-14 sm:flex-[2]" loading={submitting}>
+                    Completar e Entrar
+                  </Button>
+                </div>
+              </motion.form>
             )}
           </AnimatePresence>
         </Card>

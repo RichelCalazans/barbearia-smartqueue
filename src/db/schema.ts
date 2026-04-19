@@ -1,4 +1,24 @@
-import { QueueStatus } from '../types';
+import { QueueStatus, ClientRegistrationStatus, ClientOrigin } from '../types';
+
+export interface DbClient {
+  id: string;
+  tenantId: string;
+  nome: string;
+  telefone: string;
+  telefoneNormalizado: string;
+  dataNascimento?: string;
+  totalVisitas: number;
+  tempoMedio: number;
+  dataCadastro: Date;
+  ativo: boolean;
+  registrationStatus: ClientRegistrationStatus;
+  createdOrigin: ClientOrigin;
+  createdByBarber: boolean;
+  hasCompletedSignup: boolean;
+  completedAt?: Date | null;
+  authUid?: string | null;
+  updatedAt: Date;
+}
 
 export interface DbQueuePosition {
   id: string;
