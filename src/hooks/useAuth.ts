@@ -43,9 +43,9 @@ export function useAuth() {
             });
           } else {
             try {
-              const foundUser = await UserService.findByEmail(firebaseUser.email);
+              const foundUser = await UserService.findById(firebaseUser.uid);
               if (!foundUser) {
-                console.warn(`[useAuth] Usuário ${firebaseUser.email} não encontrado no Firestore. Permissões negadas.`);
+                console.warn(`[useAuth] Usuário ${firebaseUser.email} (uid=${firebaseUser.uid}) não encontrado no Firestore. Permissões negadas.`);
                 setAppUser(null);
               } else {
                 setAppUser(foundUser);

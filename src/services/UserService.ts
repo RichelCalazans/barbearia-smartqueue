@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   setDoc,
+  getDoc,
   getDocs,
   updateDoc,
   deleteDoc,
@@ -82,6 +83,22 @@ export class UserService {
 
   static async deleteUser(userId: string): Promise<void> {
     await deleteDoc(doc(db, this.COLLECTION, userId));
+  }
+
+  static async findById(uid: string): Promise<AppUser | null> {
+    const snap = await getDoc(doc(db, this.COLLECTION, uid));
+    if (!snap.exists()) return null;
+    const data = snap.data();
+    if (!data.role) {
+      const isAdmin = data.isAdmin ?? false;
+      return {
+        id: snap.id,
+        ...data,
+        role: isAdmin ? 'ADMIN' as UserRole : 'BARBEIRO' as UserRole,
+        permissions: ROLE_PERMISSIONS[isAdmin ? 'ADMIN' : 'BARBEIRO'],
+      } as AppUser;
+    }
+    return { id: snap.id, ...data } as AppUser;
   }
 
   static async findByEmail(email: string): Promise<AppUser | null> {
