@@ -4,6 +4,7 @@ import { auth, signIn, signOut } from '../firebase';
 import { UserService } from '../services/UserService';
 import { AppUser, Permission, UserRole, ROLE_PERMISSIONS } from '../types';
 import { isSuperAdminEmail } from '../config/admin';
+import { diag } from '../utils/diag';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -34,11 +35,14 @@ export function useAuth() {
   };
 
   useEffect(() => {
+    diag('useAuth:subscribe');
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      diag('useAuth:onAuthStateChanged', { email: firebaseUser?.email ?? null, uid: firebaseUser?.uid ?? null });
       setUser(firebaseUser);
       try {
         if (firebaseUser?.email) {
           if (isSuperAdminEmail(firebaseUser.email)) {
+            diag('useAuth:superAdmin');
             setAppUser({
               id: firebaseUser.uid,
               email: firebaseUser.email,
@@ -50,7 +54,9 @@ export function useAuth() {
             });
           } else {
             try {
+              diag('useAuth:findById:start', firebaseUser.uid);
               const foundUser = await UserService.findById(firebaseUser.uid);
+              diag('useAuth:findById:done', { found: !!foundUser, role: foundUser?.role, ativo: foundUser?.ativo });
               if (!foundUser) {
                 console.warn(`[useAuth] Usuário ${firebaseUser.email} (uid=${firebaseUser.uid}) não encontrado no Firestore. Permissões negadas.`);
                 setAppUser(null);
@@ -63,6 +69,7 @@ export function useAuth() {
                 });
               }
             } catch (userServiceError) {
+              diag('useAuth:findById:error', userServiceError instanceof Error ? userServiceError.message : String(userServiceError));
               console.error(`[useAuth] Erro ao buscar usuário ${firebaseUser.email}:`, userServiceError);
               if (userServiceError instanceof Error && userServiceError.message.includes('permission-denied')) {
                 console.error('[useAuth] Firestore permission denied ao ler user document');
@@ -77,10 +84,14 @@ export function useAuth() {
         console.error('[useAuth] Erro inesperado na auth callback:', error);
         setAppUser(null);
       } finally {
+        diag('useAuth:loading=false');
         setLoading(false);
       }
     });
-    return unsubscribe;
+    return () => {
+      diag('useAuth:unsubscribe');
+      unsubscribe();
+    };
   }, []);
 
   return {

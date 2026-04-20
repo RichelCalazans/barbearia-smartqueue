@@ -9,6 +9,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { motion, AnimatePresence } from 'motion/react';
 import { ScissorsLoading } from './components/ScissorsLoading';
 import { Button } from './components/Button';
+import { DiagnosticOverlay } from './components/DiagnosticOverlay';
 import { AppProvider } from './contexts/AppContext';
 import { useAuth } from './hooks/useAuth';
 
@@ -119,13 +120,14 @@ function AnimatedRoutes() {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
         initial={{ opacity: 0, x: 10 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -10 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
+        style={{ opacity: 1 }}
       >
         <Routes location={location}>
           <Route path="/" element={<ClientView />} />
@@ -161,6 +163,7 @@ export default function App() {
               <AnimatedRoutes />
             </Suspense>
           </RouteErrorBoundary>
+          <DiagnosticOverlay />
         </div>
       </AppProvider>
     </BrowserRouter>

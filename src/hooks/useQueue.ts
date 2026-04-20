@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { QueueItem } from '../types';
+import { diag } from '../utils/diag';
 
 export function useQueue(selectedDate?: string) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -9,6 +10,7 @@ export function useQueue(selectedDate?: string) {
 
   useEffect(() => {
     const dateToQuery = selectedDate || new Date().toISOString().split('T')[0];
+    diag('useQueue:subscribe', dateToQuery);
     const q = query(
       collection(db, 'queue'),
       where('data', '==', dateToQuery),
@@ -17,6 +19,7 @@ export function useQueue(selectedDate?: string) {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      diag('useQueue:snapshot', { size: snapshot.size });
       const items = snapshot.docs.map(d => {
         const data = d.data() as QueueItem;
         // Ensure horaPrevista is always in HH:MM format
@@ -45,11 +48,15 @@ export function useQueue(selectedDate?: string) {
       setQueue(items);
       setLoading(false);
     }, (error) => {
+      diag('useQueue:error', error instanceof Error ? error.message : String(error));
       console.error('useQueue snapshot error:', error);
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      diag('useQueue:unsubscribe');
+      unsubscribe();
+    };
   }, [selectedDate]);
 
   const waiting = queue.filter(item => item.status === 'AGUARDANDO');

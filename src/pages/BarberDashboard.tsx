@@ -54,6 +54,7 @@ import { AnalyticsService } from '../services/AnalyticsService';
 import { UserService } from '../services/UserService';
 import { useQueue } from '../hooks/useQueue';
 import { useAuth } from '../hooks/useAuth';
+import { diag } from '../utils/diag';
 import { AppConfig, AppState, AppUser, UserRole, Service, QueueItem } from '../types';
 import { cn } from '../utils';
 import { MetricsPage } from './MetricsPage';
@@ -250,6 +251,18 @@ export function BarberDashboard() {
   );
 
   useEffect(() => {
+    diag('Dashboard:stateSnapshot', {
+      authLoading,
+      queueLoading,
+      hasUser: !!user,
+      canAccessDashboard,
+      isAdmin,
+      hasConfig: !!config,
+      hasState: !!state,
+    });
+  }, [authLoading, queueLoading, user, canAccessDashboard, isAdmin, config, state]);
+
+  useEffect(() => {
     if (isAdmin && config && state) {
       ConfigService.checkAutoOpenClose(config, state);
       const interval = setInterval(() => {
@@ -264,18 +277,22 @@ export function BarberDashboard() {
     let configInitTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const initializeServices = async () => {
+      diag('Dashboard:init', { canAccessDashboard, isAdmin });
       if (!canAccessDashboard) return;
 
       if (isAdmin) {
         configInitTimeout = setTimeout(() => {
           if (isMounted) {
+            diag('Dashboard:configInit:timeout');
             console.error('[BarberDashboard] ConfigService.initialize() timeout (8s)');
             setError('Configurações demoraram muito a carregar. Verifique sua conexão e permissões.');
           }
         }, 8000);
 
         try {
+          diag('Dashboard:configInit:start');
           await ConfigService.initialize();
+          diag('Dashboard:configInit:done');
           if (configInitTimeout) clearTimeout(configInitTimeout);
         } catch (err) {
           if (configInitTimeout) clearTimeout(configInitTimeout);
