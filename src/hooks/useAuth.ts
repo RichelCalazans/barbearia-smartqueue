@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, signIn, signOut } from '../firebase';
 import { UserService } from '../services/UserService';
-import { AppUser, Permission, UserRole } from '../types';
+import { AppUser, Permission, UserRole, ROLE_PERMISSIONS } from '../types';
 import { isSuperAdminEmail } from '../config/admin';
 
 export function useAuth() {
@@ -12,13 +12,20 @@ export function useAuth() {
 
   const isSuperAdmin = isSuperAdminEmail(user?.email);
 
+  const effectivePermissions: Permission[] = appUser?.permissions?.length
+    ? appUser.permissions
+    : appUser?.role
+      ? ROLE_PERMISSIONS[appUser.role]
+      : [];
+
   const isAdmin = isSuperAdmin || appUser?.role === 'ADMIN' || appUser?.role === 'SUPER_ADMIN';
-  const canAccessDashboard = isSuperAdmin || (appUser?.permissions?.includes('manage_queue') ?? false);
+  const canAccessDashboard = isSuperAdmin || ((appUser?.ativo ?? false) && effectivePermissions.includes('manage_queue'));
 
   const hasPermission = (permission: Permission): boolean => {
     if (isSuperAdmin) return true;
     if (!appUser) return false;
-    return appUser.permissions?.includes(permission) ?? false;
+    if (!appUser.ativo) return false;
+    return effectivePermissions.includes(permission);
   };
 
   const hasRole = (role: UserRole): boolean => {
@@ -48,7 +55,12 @@ export function useAuth() {
                 console.warn(`[useAuth] Usuário ${firebaseUser.email} (uid=${firebaseUser.uid}) não encontrado no Firestore. Permissões negadas.`);
                 setAppUser(null);
               } else {
-                setAppUser(foundUser);
+                setAppUser({
+                  ...foundUser,
+                  permissions: foundUser.permissions?.length
+                    ? foundUser.permissions
+                    : ROLE_PERMISSIONS[foundUser.role],
+                });
               }
             } catch (userServiceError) {
               console.error(`[useAuth] Erro ao buscar usuário ${firebaseUser.email}:`, userServiceError);
