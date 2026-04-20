@@ -260,26 +260,64 @@ export function BarberDashboard() {
   }, [isAdmin, config, state]);
 
   useEffect(() => {
-    if (canAccessDashboard) {
+    let isMounted = true;
+    let configInitTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const initializeServices = async () => {
+      if (!canAccessDashboard) return;
+
       if (isAdmin) {
-        ConfigService.initialize().catch(err => {
-          console.error('Config init error:', err);
-          setError('Erro ao inicializar configurações. Verifique sua conexão.');
-        });
-        ServiceService.initialize().catch(err => {
-          console.error('Service init error:', err);
-        });
+        configInitTimeout = setTimeout(() => {
+          if (isMounted) {
+            console.error('[BarberDashboard] ConfigService.initialize() timeout (8s)');
+            setError('Configurações demoraram muito a carregar. Verifique sua conexão e permissões.');
+          }
+        }, 8000);
+
+        try {
+          await ConfigService.initialize();
+          if (configInitTimeout) clearTimeout(configInitTimeout);
+        } catch (err) {
+          if (configInitTimeout) clearTimeout(configInitTimeout);
+          if (!isMounted) return;
+          console.error('[BarberDashboard] Config init error:', err);
+          if (err instanceof Error && err.message.includes('permission-denied')) {
+            setError('Você não tem permissão para acessar as configurações. Contate um administrador.');
+          } else {
+            setError('Erro ao inicializar configurações. Verifique sua conexão.');
+          }
+        }
+
+        try {
+          await ServiceService.initialize();
+        } catch (err) {
+          if (isMounted) console.error('[BarberDashboard] Service init error:', err);
+        }
       }
-      ServiceService.listActive().then(setAvailableServices).catch(err => {
-        console.error('Service list error:', err);
-      });
-    }
+
+      try {
+        const services = await ServiceService.listActive();
+        if (isMounted) setAvailableServices(services);
+      } catch (err) {
+        if (isMounted) {
+          console.error('[BarberDashboard] Service list error:', err);
+          setAvailableServices([]);
+        }
+      }
+    };
+
+    initializeServices();
+
     const unsubConfig = ConfigService.onConfigChange(setConfig);
     const unsubState = ConfigService.onStateChange(setState);
-    
-    AnalyticsService.getDailyMetrics().then(setMetrics);
-    
+
+    AnalyticsService.getDailyMetrics().then(setMetrics).catch(err => {
+      console.error('[BarberDashboard] Analytics error:', err);
+    });
+
     return () => {
+      isMounted = false;
+      if (configInitTimeout) clearTimeout(configInitTimeout);
       unsubConfig();
       unsubState();
     };

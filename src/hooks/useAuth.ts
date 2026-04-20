@@ -42,13 +42,27 @@ export function useAuth() {
               createdAt: 0,
             });
           } else {
-            const foundUser = await UserService.findByEmail(firebaseUser.email);
-            setAppUser(foundUser);
+            try {
+              const foundUser = await UserService.findByEmail(firebaseUser.email);
+              if (!foundUser) {
+                console.warn(`[useAuth] Usuário ${firebaseUser.email} não encontrado no Firestore. Permissões negadas.`);
+                setAppUser(null);
+              } else {
+                setAppUser(foundUser);
+              }
+            } catch (userServiceError) {
+              console.error(`[useAuth] Erro ao buscar usuário ${firebaseUser.email}:`, userServiceError);
+              if (userServiceError instanceof Error && userServiceError.message.includes('permission-denied')) {
+                console.error('[useAuth] Firestore permission denied ao ler user document');
+              }
+              setAppUser(null);
+            }
           }
         } else {
           setAppUser(null);
         }
-      } catch {
+      } catch (error) {
+        console.error('[useAuth] Erro inesperado na auth callback:', error);
         setAppUser(null);
       } finally {
         setLoading(false);
