@@ -24,7 +24,16 @@ service cloud.firestore {
       return isSuperAdmin() ||
         (isAuthenticated() &&
          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN'] &&
+         (
+           (
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role is string &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN']
+           ) ||
+           (
+             !(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role is string) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+           )
+         ) &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ativo == true);
     }
 
@@ -32,7 +41,16 @@ service cloud.firestore {
       return isSuperAdmin() ||
         (isAuthenticated() &&
          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN', 'BARBEIRO', 'RECEPCIONISTA'] &&
+         (
+           (
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role is string &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN', 'BARBEIRO', 'RECEPCIONISTA']
+           ) ||
+           (
+             !(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role is string) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin is bool
+           )
+         ) &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ativo == true);
     }
 
