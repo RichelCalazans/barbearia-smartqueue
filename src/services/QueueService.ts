@@ -22,11 +22,24 @@ interface AddToQueueOptions {
   desiredPosition?: number | null;
 }
 
+interface RecalculateQueueOptions {
+  preferredFirstWaitingTime?: string;
+}
+
 export class QueueService {
   private static COLLECTION = 'queue';
 
   private static getToday(): string {
     return new Date().toISOString().split('T')[0];
+  }
+
+  private static getCurrentHHMM(): string {
+    const now = new Date();
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  }
+
+  private static isValidHHMM(value: unknown): value is string {
+    return typeof value === 'string' && /^\d{2}:\d{2}$/.test(value);
   }
 
   private static buildActiveQueueQuery(targetDate: string) {
@@ -211,7 +224,11 @@ export class QueueService {
   /**
    * Recalculates predicted times for the queue of a specific date.
    */
-  static async recalculateQueue(config: AppConfig, targetDate?: string): Promise<void> {
+  static async recalculateQueue(
+    config: AppConfig,
+    targetDate?: string,
+    options: RecalculateQueueOptions = {}
+  ): Promise<void> {
     const path = this.COLLECTION;
     try {
       const date = targetDate || this.getToday();
@@ -221,8 +238,7 @@ export class QueueService {
       if (queue.length === 0) return;
 
       const isToday = date === this.getToday();
-      const now = new Date();
-      const currentHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      const currentHHMM = this.getCurrentHHMM();
       let pauseMinutesRemaining = 0;
       if (isToday) {
         const stateDoc = await getDoc(doc(db, 'config', 'state'));
@@ -239,6 +255,11 @@ export class QueueService {
       let lastTime = pauseMinutesRemaining > 0
         ? TimePredictorService.addMinutes(initialTime, pauseMinutesRemaining)
         : initialTime;
+      const hasInService = queue.some(item => item.status === 'EM_ATENDIMENTO');
+      const preferredFirstWaitingTime = options.preferredFirstWaitingTime;
+      if (!hasInService && this.isValidHHMM(preferredFirstWaitingTime)) {
+        lastTime = preferredFirstWaitingTime;
+      }
 
       const batch = writeBatch(db);
 
@@ -284,39 +305,94 @@ export class QueueService {
     const path = this.COLLECTION;
     try {
       const targetDate = scheduledDate || this.getToday();
+      const activeSnapshot = await getDocs(this.buildActiveQueueQuery(targetDate));
+      const activeQueue = activeSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as QueueItem));
+      const previousFirstWaiting = activeQueue.find(item => item.status === 'AGUARDANDO');
+      const preferredFirstWaitingTime =
+        previousFirstWaiting && this.isValidHHMM(previousFirstWaiting.horaPrevista)
+          ? previousFirstWaiting.horaPrevista
+          : undefined;
+      const inServiceQueue = activeQueue.filter(item => item.status === 'EM_ATENDIMENTO');
+      const waitingQueue = activeQueue.filter(item => item.status === 'AGUARDANDO');
 
-      await runTransaction(db, async (transaction) => {
-        const snapshot = await getDocs(this.buildActiveQueueQuery(targetDate));
-        const activeQueue = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as QueueItem));
+      const itemIndex = waitingQueue.findIndex(item => item.id === ticketId);
+      if (itemIndex === -1) {
+        throw new Error('Cliente não encontrado na fila de espera.');
+      }
 
-        const inServiceQueue = activeQueue.filter(item => item.status === 'EM_ATENDIMENTO');
-        const waitingQueue = activeQueue.filter(item => item.status === 'AGUARDANDO');
+      const targetWaitingPosition = Math.min(
+        Math.max(Math.trunc(newPosition), 1),
+        waitingQueue.length
+      );
 
-        const itemIndex = waitingQueue.findIndex(item => item.id === ticketId);
-        if (itemIndex === -1) {
-          throw new Error('Cliente não encontrado na fila de espera.');
+      const reorderedWaiting = [...waitingQueue];
+      const [movedItem] = reorderedWaiting.splice(itemIndex, 1);
+      reorderedWaiting.splice(targetWaitingPosition - 1, 0, movedItem);
+
+      const normalizedQueue = [...inServiceQueue, ...reorderedWaiting];
+
+      const isToday = targetDate === this.getToday();
+      const currentHHMM = this.getCurrentHHMM();
+      let pauseMinutesRemaining = 0;
+      if (isToday) {
+        const stateDoc = await getDoc(doc(db, 'config', 'state'));
+        const state = stateDoc.exists() ? stateDoc.data() : { agendaPausada: false, tempoRetomada: null };
+        if (state.agendaPausada && state.tempoRetomada) {
+          pauseMinutesRemaining = Math.max(0, Math.ceil((state.tempoRetomada - Date.now()) / 60000));
+        }
+      }
+
+      const initialTime = isToday && currentHHMM > config.OPENING_TIME
+        ? currentHHMM
+        : config.OPENING_TIME;
+      let lastTime = pauseMinutesRemaining > 0
+        ? TimePredictorService.addMinutes(initialTime, pauseMinutesRemaining)
+        : initialTime;
+      if (inServiceQueue.length === 0 && this.isValidHHMM(preferredFirstWaitingTime)) {
+        lastTime = preferredFirstWaitingTime;
+      }
+
+      const batch = writeBatch(db);
+
+      for (const [index, item] of normalizedQueue.entries()) {
+        const nextPosition = index + 1;
+        const updates: Record<string, unknown> = {};
+
+        if (item.posicao !== nextPosition) {
+          updates.posicao = nextPosition;
         }
 
-        const targetWaitingPosition = Math.min(
-          Math.max(Math.trunc(newPosition), 1),
-          waitingQueue.length
-        );
-
-        const reorderedWaiting = [...waitingQueue];
-        const [movedItem] = reorderedWaiting.splice(itemIndex, 1);
-        reorderedWaiting.splice(targetWaitingPosition - 1, 0, movedItem);
-
-        const normalizedQueue = [...inServiceQueue, ...reorderedWaiting];
-
-        normalizedQueue.forEach((item, index) => {
-          const nextPosition = index + 1;
-          if (item.posicao !== nextPosition) {
-            transaction.update(doc(db, path, item.id), { posicao: nextPosition });
+        if (item.status === 'EM_ATENDIMENTO') {
+          if (isToday) {
+            const elapsed = (Date.now() - (item.horaChamada || Date.now())) / 60000;
+            const remaining = Math.max(0, item.tempoEstimado - elapsed);
+            lastTime = TimePredictorService.addMinutes(
+              currentHHMM,
+              remaining + config.BUFFER_MINUTES + pauseMinutesRemaining
+            );
+          } else {
+            const referenceStart = this.isValidHHMM(item.horaPrevista) ? item.horaPrevista : config.OPENING_TIME;
+            lastTime = TimePredictorService.addMinutes(
+              referenceStart,
+              item.tempoEstimado + config.BUFFER_MINUTES
+            );
           }
-        });
-      });
+        } else {
+          if (item.horaPrevista !== lastTime) {
+            updates.horaPrevista = lastTime;
+          }
+          lastTime = TimePredictorService.addMinutes(
+            lastTime,
+            item.tempoEstimado + config.BUFFER_MINUTES
+          );
+        }
 
-      await this.recalculateQueue(config, targetDate);
+        if (Object.keys(updates).length > 0) {
+          batch.update(doc(db, path, item.id), updates);
+        }
+      }
+
+      await batch.commit();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }

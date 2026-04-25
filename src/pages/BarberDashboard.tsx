@@ -75,7 +75,7 @@ interface SortableWaitingItemProps {
   onMoveToSubmit: (ticketId: string) => void;
   onMoveUp: (ticketId: string) => void;
   onMoveDown: (ticketId: string) => void;
-  onWhatsApp: (telefone: string, clienteNome: string) => void;
+  onWhatsApp: (clienteId: string, telefone: string, clienteNome: string) => void;
   reordering: boolean;
 }
 
@@ -134,7 +134,7 @@ function SortableWaitingItem({
           </div>
           <button
             type="button"
-            onClick={() => onWhatsApp(item.telefone, item.clienteNome)}
+            onClick={() => onWhatsApp(item.clienteId, item.telefone, item.clienteNome)}
             className="rounded-lg p-2 text-brand hover:bg-brand/10 shrink-0"
             title="Chamar via WhatsApp"
           >
@@ -365,8 +365,9 @@ export function BarberDashboard() {
   // Recalculate queue when pause state changes
   useEffect(() => {
     if (!config) return;
-    QueueService.recalculateQueue(config);
-  }, [config, state?.agendaPausada, state?.tempoRetomada]);
+    if (selectedQueueDate !== today) return;
+    QueueService.recalculateQueue(config, selectedQueueDate);
+  }, [config, state?.agendaPausada, state?.tempoRetomada, selectedQueueDate, today]);
 
   // Recalculate queue when a waiting client disappears (cancel/absent)
   // Uses waiting.length as a trigger — when it decreases, we know someone left
@@ -375,10 +376,10 @@ export function BarberDashboard() {
   useEffect(() => {
     if (!config) return;
     if (waiting.length < prevWaitingLengthRef.current) {
-      QueueService.recalculateQueue(config);
+      QueueService.recalculateQueue(config, selectedQueueDate);
     }
     prevWaitingLengthRef.current = waiting.length;
-  }, [waiting.length, config]);
+  }, [waiting.length, config, selectedQueueDate]);
 
   useEffect(() => {
     setPositionDrafts(prev => {
@@ -560,9 +561,36 @@ export function BarberDashboard() {
     }
   };
 
-  const handleWhatsApp = (telefone: string, clienteNome: string) => {
-    // Remove any non-numeric characters from phone
-    const phoneNumber = telefone.replace(/\D/g, '');
+  const toWhatsAppNumber = (input: string): string => {
+    const digits = (input || '').replace(/\D/g, '');
+    if (!digits) return '';
+
+    if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+      return digits;
+    }
+    if (digits.length === 10 || digits.length === 11) {
+      return `55${digits}`;
+    }
+    return digits;
+  };
+
+  const handleWhatsApp = async (clienteId: string, fallbackTelefone: string, clienteNome: string) => {
+    let sourcePhone = fallbackTelefone;
+    try {
+      const client = await ClientService.findById(clienteId);
+      if (client?.telefone) {
+        sourcePhone = client.telefone;
+      }
+    } catch {
+      // Keep fallback phone from queue if lookup fails.
+    }
+
+    const phoneNumber = toWhatsAppNumber(sourcePhone);
+    if (!phoneNumber || phoneNumber.length < 12) {
+      setError('Telefone inválido para WhatsApp. Atualize o cadastro do cliente.');
+      return;
+    }
+
     const message = `Oi ${clienteNome}! 👋 Você é o próximo para atendimento! Estou pronto aqui. 💈`;
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
@@ -1037,7 +1065,7 @@ export function BarberDashboard() {
                   <div className="grid grid-cols-1 gap-2 md:flex md:flex-wrap md:items-center md:justify-start md:gap-3">
                     <Button
                       className="w-full md:w-auto h-11 md:h-12 md:px-8 font-bold bg-[#25D366] hover:bg-[#25D366]/90 text-white text-sm md:text-base"
-                      onClick={() => handleWhatsApp(inService.telefone, inService.clienteNome)}
+                      onClick={() => handleWhatsApp(inService.clienteId, inService.telefone, inService.clienteNome)}
                       title="Enviar mensagem via WhatsApp"
                     >
                       <MessageCircle className="mr-2 h-4 md:h-5 w-4 md:w-5" /> WhatsApp

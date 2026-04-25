@@ -123,6 +123,24 @@ export class ClientService {
   }
 
   /**
+   * Searches for a client by id.
+   */
+  static async findById(clientId: string): Promise<Client | null> {
+    const path = `${this.COLLECTION}/${clientId}`;
+    try {
+      const snapshot = await getDoc(doc(db, this.COLLECTION, clientId));
+      if (!snapshot.exists()) return null;
+
+      const client = this.toClient(snapshot.id, snapshot.data());
+      await this.ensureCanonicalPhoneFields(client);
+      return client;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, path);
+      return null;
+    }
+  }
+
+  /**
    * Searches for a client by phone number or creates a new one.
    */
   static async findOrCreate(nome: string, telefone: string, dataNascimento?: string): Promise<{ client: Client, isNew: boolean }> {
