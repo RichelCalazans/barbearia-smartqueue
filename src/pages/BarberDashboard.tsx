@@ -75,6 +75,7 @@ interface SortableWaitingItemProps {
   onMoveToSubmit: (ticketId: string) => void;
   onMoveUp: (ticketId: string) => void;
   onMoveDown: (ticketId: string) => void;
+  onRemove: (ticket: QueueItem) => void;
   onWhatsApp: (clienteId: string, telefone: string, clienteNome: string) => void;
   reordering: boolean;
 }
@@ -88,6 +89,7 @@ function SortableWaitingItem({
   onMoveToSubmit,
   onMoveUp,
   onMoveDown,
+  onRemove,
   onWhatsApp,
   reordering,
 }: SortableWaitingItemProps) {
@@ -132,14 +134,24 @@ function SortableWaitingItem({
               <p className="text-xs text-[#64748B] truncate">{item.servicos}</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => onWhatsApp(item.clienteId, item.telefone, item.clienteNome)}
-            className="rounded-lg p-2 text-brand hover:bg-brand/10 shrink-0"
-            title="Chamar via WhatsApp"
-          >
-            <MessageCircle className="h-4 w-4 md:h-5 md:w-5" />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => onWhatsApp(item.clienteId, item.telefone, item.clienteNome)}
+              className="rounded-lg p-2 text-brand hover:bg-brand/10"
+              title="Chamar via WhatsApp"
+            >
+              <MessageCircle className="h-4 w-4 md:h-5 md:w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onRemove(item)}
+              className="rounded-lg p-2 text-[#EF4444] hover:bg-[#EF4444]/10"
+              title="Excluir da fila"
+            >
+              <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -695,6 +707,29 @@ export function BarberDashboard() {
     await moveQueueTicket(ticketId, nextPosition);
   };
 
+  const handleRemoveFromQueue = async (ticket: QueueItem) => {
+    if (!config) return;
+    if (!confirm(`Excluir "${ticket.clienteNome}" da fila?`)) return;
+
+    setReordering(true);
+    try {
+      await QueueService.updateStatus(ticket.id, 'CANCELADO');
+      await QueueService.recalculateQueue(config, selectedQueueDate);
+      setError(null);
+    } catch (err: any) {
+      let message = 'Erro ao excluir cliente da fila.';
+      try {
+        const parsed = JSON.parse(err.message);
+        message = parsed.error || message;
+      } catch {
+        message = err.message || message;
+      }
+      setError(message);
+    } finally {
+      setReordering(false);
+    }
+  };
+
   const handleQueueDragEnd = async (event: DragEndEvent) => {
     if (reordering) return;
     const { active, over } = event;
@@ -1188,6 +1223,7 @@ export function BarberDashboard() {
                         onMoveToSubmit={handlePositionDraftSubmit}
                         onMoveUp={handleMoveUp}
                         onMoveDown={handleMoveDown}
+                        onRemove={handleRemoveFromQueue}
                         onWhatsApp={handleWhatsApp}
                         reordering={reordering}
                       />
