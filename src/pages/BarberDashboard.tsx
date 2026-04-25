@@ -76,7 +76,7 @@ interface SortableWaitingItemProps {
   onMoveUp: (ticketId: string) => void;
   onMoveDown: (ticketId: string) => void;
   onRemove: (ticket: QueueItem) => void;
-  onWhatsApp: (clienteId: string, telefone: string, clienteNome: string) => void;
+  onWhatsApp: (clienteId: string, clienteNome: string) => void;
   reordering: boolean;
 }
 
@@ -137,7 +137,7 @@ function SortableWaitingItem({
           <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
-              onClick={() => onWhatsApp(item.clienteId, item.telefone, item.clienteNome)}
+              onClick={() => onWhatsApp(item.clienteId, item.clienteNome)}
               className="rounded-lg p-2 text-brand hover:bg-brand/10"
               title="Chamar via WhatsApp"
             >
@@ -583,23 +583,23 @@ export function BarberDashboard() {
     if (digits.length === 10 || digits.length === 11) {
       return `55${digits}`;
     }
-    return digits;
+    return '';
   };
 
-  const handleWhatsApp = async (clienteId: string, fallbackTelefone: string, clienteNome: string) => {
-    let sourcePhone = fallbackTelefone;
+  const handleWhatsApp = async (clienteId: string, clienteNome: string) => {
+    let sourcePhone = '';
     try {
       const client = await ClientService.findById(clienteId);
       if (client?.telefone) {
         sourcePhone = client.telefone;
       }
     } catch {
-      // Keep fallback phone from queue if lookup fails.
+      // Handled below with explicit error.
     }
 
     const phoneNumber = toWhatsAppNumber(sourcePhone);
-    if (!phoneNumber || phoneNumber.length < 12) {
-      setError('Telefone inválido para WhatsApp. Atualize o cadastro do cliente.');
+    if (!phoneNumber) {
+      setError('Nao foi possivel obter o telefone completo do cliente. Atualize o cadastro e tente novamente.');
       return;
     }
 
@@ -1100,7 +1100,7 @@ export function BarberDashboard() {
                   <div className="grid grid-cols-1 gap-2 md:flex md:flex-wrap md:items-center md:justify-start md:gap-3">
                     <Button
                       className="w-full md:w-auto h-11 md:h-12 md:px-8 font-bold bg-[#25D366] hover:bg-[#25D366]/90 text-white text-sm md:text-base"
-                      onClick={() => handleWhatsApp(inService.clienteId, inService.telefone, inService.clienteNome)}
+                      onClick={() => handleWhatsApp(inService.clienteId, inService.clienteNome)}
                       title="Enviar mensagem via WhatsApp"
                     >
                       <MessageCircle className="mr-2 h-4 md:h-5 w-4 md:w-5" /> WhatsApp
