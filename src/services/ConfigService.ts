@@ -165,13 +165,35 @@ export class ConfigService {
 
   /**
    * Checks and updates agenda status based on weekly schedule.
+   * Respects manual override: if barber opened manually outside schedule with a
+   * custom close time, keep open until that time (don't auto-close).
    */
   static async checkAutoOpenClose(config: AppConfig, currentState: AppState): Promise<void> {
     if (!config.AUTO_OPEN_CLOSE || !config.WEEKLY_SCHEDULE) return;
 
     const now = new Date();
+    const today = now.toISOString().split('T')[0];
     const dayOfWeek = now.getDay();
     const schedule = config.WEEKLY_SCHEDULE.find(s => s.day === dayOfWeek);
+
+    // Check manual override for today
+    const hasOverrideForToday =
+      currentState.manualOverrideDate === today &&
+      !!currentState.manualOverrideCloseTime;
+
+    if (hasOverrideForToday) {
+      const [closeH, closeM] = currentState.manualOverrideCloseTime!.split(':').map(Number);
+      const overrideCloseDate = new Date(now);
+      overrideCloseDate.setHours(closeH, closeM, 0, 0);
+
+      // If override close time has passed, close and clear the override
+      if (now >= overrideCloseDate) {
+        await this.toggleAgenda(false);
+        await this.clearManualOverride();
+      }
+      // Otherwise, keep agenda as-is (don't auto-toggle while override is active)
+      return;
+    }
 
     if (!schedule || !schedule.enabled) {
       if (currentState.agendaAberta) {
@@ -197,6 +219,66 @@ export class ConfigService {
   }
 
   /**
+   * Checks if current time is outside today's scheduled window.
+   * Returns true when AUTO_OPEN_CLOSE is on and now is before openTime or after closeTime
+   * (or the day is disabled). Returns false when inside the scheduled window or when
+   * AUTO_OPEN_CLOSE is disabled.
+   */
+  static isOutsideScheduledWindow(config: AppConfig): boolean {
+    if (!config.AUTO_OPEN_CLOSE || !config.WEEKLY_SCHEDULE) return false;
+
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const schedule = config.WEEKLY_SCHEDULE.find(s => s.day === dayOfWeek);
+
+    if (!schedule || !schedule.enabled) return true;
+
+    const [openH, openM] = schedule.openTime.split(':').map(Number);
+    const [closeH, closeM] = schedule.closeTime.split(':').map(Number);
+    const openDate = new Date(now);
+    openDate.setHours(openH, openM, 0, 0);
+    const closeDate = new Date(now);
+    closeDate.setHours(closeH, closeM, 0, 0);
+
+    return now < openDate || now >= closeDate;
+  }
+
+  /**
+   * Opens the agenda manually with a custom close time for today only.
+   * Used when AUTO_OPEN_CLOSE is on but barber wants to open outside schedule.
+   */
+  static async openAgendaWithManualOverride(closeTime: string): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    try {
+      await setDoc(doc(db, this.STATE_PATH), {
+        agendaAberta: true,
+        agendaPausada: false,
+        dataAbertura: today,
+        manualOverrideCloseTime: closeTime,
+        manualOverrideDate: today,
+      }, { merge: true });
+
+      await this.setBarberStatusFromAction('AGUARDANDO_CLIENTE', 'ABRIU_AGENDA');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, this.STATE_PATH);
+    }
+  }
+
+  /**
+   * Clears the manual override (called when override expires or agenda is closed).
+   */
+  static async clearManualOverride(): Promise<void> {
+    try {
+      await setDoc(doc(db, this.STATE_PATH), {
+        manualOverrideCloseTime: null,
+        manualOverrideDate: null,
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, this.STATE_PATH);
+    }
+  }
+
+  /**
    * Opens or closes the agenda.
    */
   static async toggleAgenda(open: boolean): Promise<void> {
@@ -205,6 +287,8 @@ export class ConfigService {
         agendaAberta: open,
         agendaPausada: false,
         dataAbertura: open ? new Date().toISOString().split('T')[0] : null,
+        // Clear manual override when manually closing
+        ...(open ? {} : { manualOverrideCloseTime: null, manualOverrideDate: null }),
       }, { merge: true });
 
       await this.setBarberStatusFromAction(

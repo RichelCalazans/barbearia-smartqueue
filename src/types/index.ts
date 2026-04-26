@@ -120,6 +120,8 @@ export interface AppState {
   barberStatusLastAction?: BarberStatusAction | null; // action that produced the current status
   barberStatusHistory?: BarberStatusHistoryEntry[]; // recent status transitions with start timestamp
   delayAlertStartedAt?: number | null; // timestamp when delay alert started
+  manualOverrideCloseTime?: string | null; // HH:MM — manual close time override (when opened outside schedule)
+  manualOverrideDate?: string | null; // YYYY-MM-DD — date the override applies to
 }
 
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'BARBEIRO' | 'RECEPCIONISTA';

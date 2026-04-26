@@ -219,7 +219,7 @@ export function BarberDashboard() {
   const [state, setState] = useState<AppState | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'PAUSE_TIME' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | 'RESET_ESTIMATIVAS' | 'RESET_STATS' | 'ADD_MANUAL_CLIENT' | null>(null);
+  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'OPEN_AGENDA_CUSTOM_TIME' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'PAUSE_TIME' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | 'RESET_ESTIMATIVAS' | 'RESET_STATS' | 'ADD_MANUAL_CLIENT' | null>(null);
   const [pauseMinutes, setPauseMinutes] = useState<number>(15);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [tempConfig, setTempConfig] = useState<AppConfig | null>(null);
@@ -259,6 +259,7 @@ export function BarberDashboard() {
   const [resetStatsStartDate, setResetStatsStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [resetStatsEndDate, setResetStatsEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [resetStatsResult, setResetStatsResult] = useState<string | null>(null);
+  const [manualOpenCloseTime, setManualOpenCloseTime] = useState<string>('19:00');
   const canManageServices = hasPermission('manage_services');
   const canManageUsers = hasPermission('manage_users');
   const canManageSettings = hasPermission('manage_settings');
@@ -483,6 +484,9 @@ export function BarberDashboard() {
           break;
         case 'OPEN_AGENDA':
           await ConfigService.toggleAgenda(true);
+          break;
+        case 'OPEN_AGENDA_CUSTOM_TIME':
+          await ConfigService.openAgendaWithManualOverride(manualOpenCloseTime);
           break;
         case 'CLOSE_AGENDA':
           // Se tem clientes na fila, mostrar opções
@@ -1284,7 +1288,17 @@ export function BarberDashboard() {
           agendaPausada={!!state?.agendaPausada}
           timeRemaining={timeRemaining}
           onOpen={() => {
-            setModalType('OPEN_AGENDA');
+            // If AUTO_OPEN_CLOSE is on and now is outside scheduled window,
+            // ask the barber for a custom close time for today.
+            if (config && ConfigService.isOutsideScheduledWindow(config)) {
+              // Default to scheduled close time if exists, else 19:00
+              const dayOfWeek = new Date().getDay();
+              const todaySchedule = config.WEEKLY_SCHEDULE?.find(s => s.day === dayOfWeek);
+              setManualOpenCloseTime(todaySchedule?.closeTime || '19:00');
+              setModalType('OPEN_AGENDA_CUSTOM_TIME');
+            } else {
+              setModalType('OPEN_AGENDA');
+            }
             setIsModalOpen(true);
           }}
           onPauseToggle={() => {
@@ -1329,6 +1343,7 @@ export function BarberDashboard() {
           modalType === 'FINALIZE' ? 'Finalizar Atendimento' :
           modalType === 'ABSENT' ? 'Marcar como Ausente' :
           modalType === 'OPEN_AGENDA' ? 'Abrir Agenda' :
+          modalType === 'OPEN_AGENDA_CUSTOM_TIME' ? 'Abrir Fora do Horário' :
           modalType === 'PAUSE_AGENDA' ? 'Pausar Agenda' :
           modalType === 'PAUSE_TIME' ? 'Quanto Tempo Pausar?' :
           modalType === 'RESUME_AGENDA' ? 'Retomar Agenda' :
@@ -1412,7 +1427,7 @@ export function BarberDashboard() {
                 onClick={handleAction}
                 loading={submitting}
               >
-                {modalType === 'SETTINGS' ? 'Salvar' : 'Confirmar'}
+                {modalType === 'SETTINGS' ? 'Salvar' : modalType === 'OPEN_AGENDA_CUSTOM_TIME' ? 'Abrir até este horário' : 'Confirmar'}
               </Button>
             </>
           ) : undefined
@@ -1825,6 +1840,30 @@ export function BarberDashboard() {
               />
               <span className="text-sm text-[#64748B]">Não mostrar novamente</span>
             </label>
+          </div>
+        ) : modalType === 'OPEN_AGENDA_CUSTOM_TIME' ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-brand/20 bg-brand/5 p-4 flex gap-3">
+              <AlertCircle className="h-5 w-5 text-brand shrink-0 mt-0.5" />
+              <div className="text-sm text-[#64748B]">
+                <p className="font-bold text-[#F1F5F9] mb-1">Você está abrindo fora do horário programado</p>
+                <p>A abertura automática está ativa, mas hoje você quer abrir manualmente. Defina até que horas a agenda ficará aberta hoje.</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-[#64748B] mb-2">
+                Fechar agenda às
+              </label>
+              <input
+                type="time"
+                value={manualOpenCloseTime}
+                onChange={(e) => setManualOpenCloseTime(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-[#1E1E1E] bg-[#111111] text-[#F1F5F9] text-sm focus:outline-none focus:border-brand"
+              />
+              <p className="text-xs text-[#64748B] mt-2">
+                Após esse horário, a agenda será fechada automaticamente. A programação semanal volta ao normal amanhã.
+              </p>
+            </div>
           </div>
         ) : (
           <p className="text-[#64748B] leading-relaxed">
