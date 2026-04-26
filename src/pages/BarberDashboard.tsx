@@ -255,6 +255,9 @@ export function BarberDashboard() {
   const [skipPauseConfirm, setSkipPauseConfirm] = useState<boolean>(() => {
     return localStorage.getItem('sq_skip_pause_confirm') === 'true';
   });
+  const [resetStatsStartDate, setResetStatsStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [resetStatsEndDate, setResetStatsEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [resetStatsResult, setResetStatsResult] = useState<string | null>(null);
   const canManageServices = hasPermission('manage_services');
   const canManageUsers = hasPermission('manage_users');
   const canManageSettings = hasPermission('manage_settings');
@@ -550,10 +553,20 @@ export function BarberDashboard() {
           }
           break;
         case 'RESET_STATS':
-          const deletedCount = await AnalyticsService.resetDailyMetrics();
-          setError(null);
-          // Refresh metrics
-          AnalyticsService.getDailyMetrics().then(setMetrics);
+          try {
+            const deletedCount = await AnalyticsService.resetMetricsByPeriod(resetStatsStartDate, resetStatsEndDate);
+            setResetStatsResult(`${deletedCount} registro${deletedCount !== 1 ? 's' : ''} apagado${deletedCount !== 1 ? 's' : ''} com sucesso.`);
+            setError(null);
+            // Refresh metrics
+            AnalyticsService.getDailyMetrics().then(setMetrics);
+            // Close modal after 2 seconds
+            setTimeout(() => {
+              setIsModalOpen(false);
+              setResetStatsResult(null);
+            }, 2000);
+          } catch (err) {
+            setResetStatsResult('Erro ao resetar estatísticas. Tente novamente.');
+          }
           break;
       }
       setIsModalOpen(false);
@@ -997,7 +1010,19 @@ export function BarberDashboard() {
                 </Button>
               )}
               {isSuperAdmin && (
-                <Button variant="ghost" size="icon" onClick={() => { setModalType('RESET_STATS'); setIsModalOpen(true); }} title="Resetar estatísticas de hoje">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    const today = new Date().toISOString().split('T')[0];
+                    setResetStatsStartDate(today);
+                    setResetStatsEndDate(today);
+                    setResetStatsResult(null);
+                    setModalType('RESET_STATS');
+                    setIsModalOpen(true);
+                  }}
+                  title="Resetar estatísticas de período"
+                >
                   <RotateCcw className="h-5 w-5 text-[#64748B]" />
                 </Button>
               )}
@@ -1372,7 +1397,18 @@ export function BarberDashboard() {
                 Adicionar na Fila
               </Button>
             </>
-          ) : modalType !== 'MANAGE_USERS' && modalType !== 'MANAGE_SERVICES' && modalType !== 'RESET_ESTIMATIVAS' && modalType !== 'RESET_STATS' ? (
+          ) : modalType === 'RESET_STATS' ? (
+            <>
+              <Button variant="ghost" onClick={() => { setIsModalOpen(false); setResetStatsResult(null); }}>Cancelar</Button>
+              <Button
+                variant="danger"
+                onClick={handleAction}
+                loading={submitting}
+              >
+                Confirmar Reset
+              </Button>
+            </>
+          ) : modalType !== 'MANAGE_USERS' && modalType !== 'MANAGE_SERVICES' && modalType !== 'RESET_ESTIMATIVAS' ? (
             <>
               <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
               <Button
@@ -1724,19 +1760,55 @@ export function BarberDashboard() {
           config ? <ResetEstimativasModal config={config} /> : null
         ) : modalType === 'RESET_STATS' ? (
           <div className="space-y-4">
+            {resetStatsResult && (
+              <div className={`p-3 rounded-xl border text-sm flex items-center gap-2 ${
+                resetStatsResult.includes('Erro')
+                  ? 'bg-[#EF4444]/10 border-[#EF4444]/20 text-[#EF4444]'
+                  : 'bg-[#22C55E]/10 border-[#22C55E]/20 text-[#22C55E]'
+              }`}>
+                {resetStatsResult.includes('Erro') ? <AlertCircle className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                {resetStatsResult}
+              </div>
+            )}
             <div className="rounded-xl border border-[#EF4444]/20 bg-[#EF4444]/5 p-4 flex gap-3">
               <AlertTriangle className="h-5 w-5 text-[#EF4444] shrink-0 mt-0.5" />
               <div className="text-sm text-[#64748B]">
                 <p className="font-bold text-[#EF4444] mb-1">Ação irreversível</p>
-                <p>Todas as estatísticas de atendimento de <strong>hoje</strong> serão apagadas. Isso não afetará dados históricos anteriores.</p>
+                <p>Todas as estatísticas de atendimento no período selecionado serão apagadas permanentemente.</p>
               </div>
             </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-[#64748B] mb-2">
+                  Data de Início
+                </label>
+                <input
+                  type="date"
+                  value={resetStatsStartDate}
+                  onChange={(e) => setResetStatsStartDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[#1E1E1E] bg-[#111111] text-[#F1F5F9] text-sm focus:outline-none focus:border-brand"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-[#64748B] mb-2">
+                  Data de Fim
+                </label>
+                <input
+                  type="date"
+                  value={resetStatsEndDate}
+                  onChange={(e) => setResetStatsEndDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[#1E1E1E] bg-[#111111] text-[#F1F5F9] text-sm focus:outline-none focus:border-brand"
+                />
+              </div>
+            </div>
+
             <div className="text-sm text-[#64748B]">
-              <p className="mb-2">Isso inclui:</p>
+              <p className="mb-2">Será apagado:</p>
               <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>Total de clientes atendidos hoje</li>
-                <li>Tempo médio de atendimento</li>
-                <li>Taxa de aderência</li>
+                <li>Registros de atendimento (history)</li>
+                <li>Métricas de tempo médio</li>
+                <li>Taxa de aderência do período</li>
               </ul>
             </div>
           </div>

@@ -289,4 +289,25 @@ export class AnalyticsService {
       throw error;
     }
   }
+
+  static async resetMetricsByPeriod(startDate: string, endDate: string): Promise<number> {
+    const path = 'history';
+    try {
+      const q = query(
+        collection(db, path),
+        where('data', '>=', startDate),
+        where('data', '<=', endDate)
+      );
+      const snapshot = await getDocs(q);
+      let count = 0;
+      for (const d of snapshot.docs) {
+        await deleteDoc(doc(db, path, d.id));
+        count++;
+      }
+      return count;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+      throw error;
+    }
+  }
 }
