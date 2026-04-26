@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { NotificationService } from '../services/NotificationService';
 import {
   Scissors,
   User,
@@ -266,18 +267,6 @@ export function BarberDashboard() {
       activationConstraint: { distance: 8 },
     })
   );
-
-  useEffect(() => {
-    diag('Dashboard:stateSnapshot', {
-      authLoading,
-      queueLoading,
-      hasUser: !!user,
-      canAccessDashboard,
-      isAdmin,
-      hasConfig: !!config,
-      hasState: !!state,
-    });
-  }, [authLoading, queueLoading, user, canAccessDashboard, isAdmin, config, state]);
 
   useEffect(() => {
     if (isAdmin && config && state) {
@@ -1159,6 +1148,13 @@ export function BarberDashboard() {
                       title={isViewingFutureDate ? 'Acao disponivel apenas para o dia atual' : ''}
                     >
                       <UserMinus className="mr-2 h-4 md:h-5 w-4 md:w-5" /> Ausente
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full md:w-auto h-11 md:h-12 md:px-8 font-bold text-sm md:text-base border-yellow-500 text-yellow-500 hover:bg-yellow-500/10"
+                      onClick={() => NotificationService.notifyCalled(inService.clienteNome)}
+                    >
+                      <span className="mr-2">🔔</span> Testar Notificação
                     </Button>
                   </div>
                   {isViewingFutureDate && (
