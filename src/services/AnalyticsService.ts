@@ -4,7 +4,9 @@ import {
   where,
   getDocs,
   orderBy,
-  limit
+  limit,
+  deleteDoc,
+  doc
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import {
@@ -264,6 +266,27 @@ export class AnalyticsService {
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
       return [];
+    }
+  }
+
+  static async resetDailyMetrics(): Promise<number> {
+    const path = 'history';
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const q = query(
+        collection(db, path),
+        where('data', '==', today)
+      );
+      const snapshot = await getDocs(q);
+      let count = 0;
+      for (const d of snapshot.docs) {
+        await deleteDoc(doc(db, path, d.id));
+        count++;
+      }
+      return count;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+      throw error;
     }
   }
 }

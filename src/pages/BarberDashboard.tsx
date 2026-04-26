@@ -6,6 +6,7 @@ import {
   User,
   Clock,
   AlertCircle,
+  AlertTriangle,
   Play,
   Check,
   UserMinus,
@@ -25,6 +26,7 @@ import {
   GripVertical,
   ArrowUp,
   ArrowDown,
+  RotateCcw,
 } from 'lucide-react';
 import {
   DndContext,
@@ -216,7 +218,7 @@ export function BarberDashboard() {
   const [state, setState] = useState<AppState | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'PAUSE_TIME' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | 'RESET_ESTIMATIVAS' | 'ADD_MANUAL_CLIENT' | null>(null);
+  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'PAUSE_TIME' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | 'RESET_ESTIMATIVAS' | 'RESET_STATS' | 'ADD_MANUAL_CLIENT' | null>(null);
   const [pauseMinutes, setPauseMinutes] = useState<number>(15);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [tempConfig, setTempConfig] = useState<AppConfig | null>(null);
@@ -546,6 +548,12 @@ export function BarberDashboard() {
             }
             await ConfigService.updateConfig(tempConfig);
           }
+          break;
+        case 'RESET_STATS':
+          const deletedCount = await AnalyticsService.resetDailyMetrics();
+          setError(null);
+          // Refresh metrics
+          AnalyticsService.getDailyMetrics().then(setMetrics);
           break;
       }
       setIsModalOpen(false);
@@ -988,6 +996,11 @@ export function BarberDashboard() {
                   <TimerIcon className="h-5 w-5 text-[#64748B]" />
                 </Button>
               )}
+              {isSuperAdmin && (
+                <Button variant="ghost" size="icon" onClick={() => { setModalType('RESET_STATS'); setIsModalOpen(true); }} title="Resetar estatísticas de hoje">
+                  <RotateCcw className="h-5 w-5 text-[#64748B]" />
+                </Button>
+              )}
               {canManageSettings && (
                 <Button variant="ghost" size="icon" onClick={() => { setTempConfig(config); setModalType('SETTINGS'); setIsModalOpen(true); }} title="Configurações">
                   <Settings className="h-5 w-5 text-[#64748B]" />
@@ -1305,6 +1318,7 @@ export function BarberDashboard() {
           modalType === 'MANAGE_USERS' ? 'Gerenciar Usuários' :
           modalType === 'MANAGE_SERVICES' ? 'Gerenciar Serviços' :
           modalType === 'RESET_ESTIMATIVAS' ? 'Estimativas de Tempo' :
+          modalType === 'RESET_STATS' ? 'Resetar Estatísticas de Hoje' :
           modalType === 'ADD_MANUAL_CLIENT' ? 'Adicionar Cliente Manualmente' : 'Fechar Agenda'
         }
         footer={
@@ -1358,7 +1372,7 @@ export function BarberDashboard() {
                 Adicionar na Fila
               </Button>
             </>
-          ) : modalType !== 'MANAGE_USERS' && modalType !== 'MANAGE_SERVICES' && modalType !== 'RESET_ESTIMATIVAS' ? (
+          ) : modalType !== 'MANAGE_USERS' && modalType !== 'MANAGE_SERVICES' && modalType !== 'RESET_ESTIMATIVAS' && modalType !== 'RESET_STATS' ? (
             <>
               <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
               <Button
@@ -1708,6 +1722,24 @@ export function BarberDashboard() {
           </div>
         ) : modalType === 'RESET_ESTIMATIVAS' ? (
           config ? <ResetEstimativasModal config={config} /> : null
+        ) : modalType === 'RESET_STATS' ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-[#EF4444]/20 bg-[#EF4444]/5 p-4 flex gap-3">
+              <AlertTriangle className="h-5 w-5 text-[#EF4444] shrink-0 mt-0.5" />
+              <div className="text-sm text-[#64748B]">
+                <p className="font-bold text-[#EF4444] mb-1">Ação irreversível</p>
+                <p>Todas as estatísticas de atendimento de <strong>hoje</strong> serão apagadas. Isso não afetará dados históricos anteriores.</p>
+              </div>
+            </div>
+            <div className="text-sm text-[#64748B]">
+              <p className="mb-2">Isso inclui:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>Total de clientes atendidos hoje</li>
+                <li>Tempo médio de atendimento</li>
+                <li>Taxa de aderência</li>
+              </ul>
+            </div>
+          </div>
         ) : modalType === 'PAUSE_AGENDA' ? (
           <div className="space-y-4">
             <p className="text-[#64748B] leading-relaxed">
