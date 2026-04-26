@@ -100,7 +100,7 @@ export function SettingsForm({ tempConfig, onChange }: Props) {
           };
           const today = new Date();
           const targetDate = new Date(today);
-          targetDate.setDate(today.getDate() + ((index - today.getDay() + 7) % 7 || 7));
+          targetDate.setDate(today.getDate() + ((index - today.getDay() + 7) % 7));
           const dateStr = targetDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 
           return (
