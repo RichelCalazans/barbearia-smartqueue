@@ -7,6 +7,42 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Dispara feedback tátil (vibração) em ações críticas.
+ * - 'light' (10ms): toques de confirmação suave
+ * - 'medium' (15ms): ações principais (chamar próximo, finalizar)
+ * - 'heavy' (padrão 20-30-20ms): ações destrutivas/erros
+ * Silenciosamente no-op em dispositivos sem suporte.
+ */
+export function haptic(intensity: 'light' | 'medium' | 'heavy' = 'medium'): void {
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+  try {
+    const pattern =
+      intensity === 'light' ? 10 : intensity === 'heavy' ? [20, 30, 20] : 15;
+    navigator.vibrate(pattern);
+  } catch {
+    // Algumas WebViews lançam SecurityError — silencia
+  }
+}
+
+/**
+ * Detecta se o dispositivo é iOS (iPhone/iPad).
+ */
+export function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+/**
+ * Detecta se o app está rodando como PWA instalado (standalone).
+ */
+export function isStandalonePWA(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia?.('(display-mode: standalone)').matches ||
+    (navigator as any).standalone === true;
+}
+
+/**
  * Normalizes phone numbers to 10/11-digit Brazilian format.
  * - strips non-digits
  * - removes leading country code 55 when present

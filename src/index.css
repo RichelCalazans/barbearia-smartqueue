@@ -25,10 +25,28 @@
 }
 
 @layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
     @apply font-sans antialiased leading-relaxed;
     background-color: var(--color-bg);
     color: var(--color-text);
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    /* Evita zoom acidental em inputs no iOS quando font-size < 16px */
+    touch-action: manipulation;
+  }
+
+  /* iOS: impede que inputs com font-size pequena disparem zoom */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  @media (min-width: 640px) {
+    input, select, textarea { font-size: inherit; }
   }
 }
 
@@ -37,5 +55,28 @@
     background-color: color-mix(in srgb, var(--color-bg-card) 80%, transparent);
     backdrop-filter: blur(24px);
     border: 1px solid var(--color-border);
+  }
+}
+
+@layer utilities {
+  /* Altura do viewport dinâmica (corrige bug do 100vh em Safari mobile) */
+  .min-h-dvh { min-height: 100dvh; }
+  .h-dvh { height: 100dvh; }
+
+  /* Safe areas — Dynamic Island, Home Indicator, gestos Android */
+  .safe-top { padding-top: max(0px, env(safe-area-inset-top)); }
+  .safe-bottom { padding-bottom: max(0px, env(safe-area-inset-bottom)); }
+  .safe-x {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+
+  /* Active state padrão para botões touch — feedback instantâneo */
+  .press-feedback {
+    transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1), opacity 120ms;
+  }
+  .press-feedback:active {
+    transform: scale(0.97);
+    opacity: 0.92;
   }
 }

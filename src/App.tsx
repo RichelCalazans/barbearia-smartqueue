@@ -35,7 +35,7 @@ class RouteErrorBoundary extends React.Component<
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <div className="min-h-screen bg-[#0A0A0A] px-4 py-8 flex items-center justify-center">
+      <div className="min-h-dvh bg-[#0A0A0A] px-4 py-8 flex items-center justify-center">
         <div className="max-w-md w-full rounded-2xl border border-[#1E1E1E] bg-[#111111] p-6 space-y-4 text-center">
           <h1 className="text-lg font-bold text-[#F1F5F9]">Não foi possível abrir esta tela</h1>
           <p className="text-sm text-[#64748B]">
@@ -103,7 +103,7 @@ function RequireAdmin({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+      <div className="min-h-dvh bg-[#0A0A0A] flex items-center justify-center">
         <ScissorsLoading />
       </div>
     );
@@ -151,11 +151,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppProvider>
-        <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] selection:bg-[var(--color-primary)]/30 selection:text-[var(--color-primary)]">
+        <div className="min-h-dvh bg-[var(--color-bg)] text-[var(--color-text)] selection:bg-[var(--color-primary)]/30 selection:text-[var(--color-primary)]">
           <RouteErrorBoundary>
             <Suspense
               fallback={
-                <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center">
+                <div className="min-h-dvh bg-[var(--color-bg)] flex items-center justify-center">
                   <ScissorsLoading />
                 </div>
               }

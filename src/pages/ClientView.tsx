@@ -424,7 +424,7 @@ export function ClientView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+      <div className="min-h-dvh bg-[#0A0A0A] flex items-center justify-center">
         <ScissorsLoading />
       </div>
     );
@@ -436,7 +436,10 @@ export function ClientView() {
     const isInService = activeTicket.status === 'EM_ATENDIMENTO';
 
     return (
-      <div className="min-h-screen bg-[var(--color-bg)] px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:px-6 sm:pb-24">
+      <div
+        className="min-h-dvh bg-[var(--color-bg)] px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:px-6 sm:pb-24"
+        style={{ paddingTop: 'max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))' }}
+      >
         <header className="mb-7 space-y-1 sm:mb-10">
           <ShopLogo url={appConfig?.LOGO_URL} name={config?.SHOP_NAME || 'SmartQueue'} invert />
           <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>
@@ -552,7 +555,7 @@ export function ClientView() {
   // === STATE STILL LOADING ===
   if (!state) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+      <div className="min-h-dvh bg-[#0A0A0A] flex items-center justify-center">
         <ScissorsLoading />
       </div>
     );
@@ -580,7 +583,10 @@ export function ClientView() {
     };
 
     return (
-      <div className="min-h-screen bg-[var(--color-bg)] px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:px-6 sm:pb-24">
+      <div
+        className="min-h-dvh bg-[var(--color-bg)] px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:px-6 sm:pb-24"
+        style={{ paddingTop: 'max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))' }}
+      >
         <header className="mb-7 space-y-1 sm:mb-10">
           <ShopLogo url={appConfig?.LOGO_URL} name={config?.SHOP_NAME || 'SmartQueue'} invert />
         </header>
@@ -655,7 +661,10 @@ export function ClientView() {
 
   // === BOOKING FORM ===
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:px-6 sm:pb-24">
+    <div
+      className="min-h-dvh bg-[var(--color-bg)] px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:px-6 sm:pb-24"
+      style={{ paddingTop: 'max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))' }}
+    >
       <header className="mb-7 space-y-1 sm:mb-10">
         <ShopLogo url={appConfig?.LOGO_URL} name={config?.SHOP_NAME || 'SmartQueue'} />
         <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>
@@ -900,7 +909,7 @@ export function ClientView() {
                 </div>
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
                   <Button variant="ghost" onClick={() => setStep(2)} className="w-full sm:flex-1">Voltar</Button>
-                  <Button type="submit" className="h-12 w-full font-bold sm:h-14 sm:flex-[2]" loading={submitting}>Entrar na Fila</Button>
+                  <Button haptic="medium" type="submit" className="min-h-12 w-full font-bold sm:h-14 sm:flex-[2]" loading={submitting}>Entrar na Fila</Button>
                 </div>
               </motion.form>
             )}
@@ -925,8 +934,9 @@ export function ClientView() {
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
                   <Button variant="ghost" onClick={() => setStep(2)} className="w-full sm:flex-1">Voltar</Button>
                   <Button
+                    haptic="medium"
                     onClick={() => handleJoinQueue()}
-                    className="h-12 w-full font-bold sm:h-14 sm:flex-[2]"
+                    className="min-h-12 w-full font-bold sm:h-14 sm:flex-[2]"
                     loading={submitting}
                   >
                     Confirmar e Entrar
@@ -967,7 +977,7 @@ export function ClientView() {
                 </div>
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
                   <Button variant="ghost" onClick={() => setStep(2)} className="w-full sm:flex-1">Voltar</Button>
-                  <Button type="submit" className="h-12 w-full font-bold sm:h-14 sm:flex-[2]" loading={submitting}>
+                  <Button haptic="medium" type="submit" className="min-h-12 w-full font-bold sm:h-14 sm:flex-[2]" loading={submitting}>
                     Completar e Entrar
                   </Button>
                 </div>

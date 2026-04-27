@@ -1053,7 +1053,7 @@ export function BarberDashboard() {
     }
   };
 
-  if (authLoading || queueLoading) return <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center"><ScissorsLoading /></div>;
+  if (authLoading || queueLoading) return <div className="min-h-dvh bg-[#0A0A0A] flex items-center justify-center"><ScissorsLoading /></div>;
 
   if (!user) {
     // RequireAdmin guard should handle this, but keep a safety net.
@@ -1062,7 +1062,7 @@ export function BarberDashboard() {
 
   if (!canAccessDashboard) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] p-6 flex flex-col items-center justify-center text-center space-y-6">
+      <div className="min-h-dvh bg-[#0A0A0A] p-6 flex flex-col items-center justify-center text-center space-y-6">
         <Lock className="h-12 w-12 text-[#EF4444]" />
         <h1 className="text-2xl font-bold text-[#F1F5F9]">Acesso Negado</h1>
         <p className="text-[#64748B]">Sua conta ({user.email}) não tem permissão para acessar o painel.</p>
@@ -1072,9 +1072,12 @@ export function BarberDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
-      {/* Header sticky — visível em todas as tabs */}
-      <header className="sticky top-0 z-40 border-b border-[#1E1E1E] bg-[#0A0A0A]/95 px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-4">
+    <div className="min-h-dvh bg-[#0A0A0A]">
+      {/* Header sticky — visível em todas as tabs (safe-area p/ Dynamic Island/notch) */}
+      <header
+        className="sticky top-0 z-40 border-b border-[#1E1E1E] bg-[#0A0A0A]/95 px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-4"
+        style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+      >
         <div className="mx-auto max-w-4xl space-y-2.5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -1230,14 +1233,16 @@ export function BarberDashboard() {
                   </div>
                   <div className="grid grid-cols-1 gap-2 md:flex md:flex-wrap md:items-center md:justify-start md:gap-3">
                     <Button
-                      className="w-full md:w-auto h-11 md:h-12 md:px-8 font-bold bg-[#25D366] hover:bg-[#25D366]/90 text-white text-sm md:text-base"
+                      haptic="light"
+                      className="w-full md:w-auto min-h-12 md:px-8 font-bold bg-[#25D366] hover:bg-[#25D366]/90 text-white text-sm md:text-base"
                       onClick={() => handleWhatsApp(inService.clienteId, inService.clienteNome)}
                       title="Enviar mensagem via WhatsApp"
                     >
                       <MessageCircle className="mr-2 h-4 md:h-5 w-4 md:w-5" /> WhatsApp
                     </Button>
                     <Button
-                      className="w-full md:w-auto h-11 md:h-12 md:px-8 font-bold text-sm md:text-base"
+                      haptic="medium"
+                      className="w-full md:w-auto min-h-12 md:px-8 font-bold text-sm md:text-base"
                       onClick={() => { setModalType('FINALIZE'); setIsModalOpen(true); }}
                       disabled={isViewingFutureDate}
                       title={isViewingFutureDate ? 'Acao disponivel apenas para o dia atual' : ''}
@@ -1245,8 +1250,9 @@ export function BarberDashboard() {
                       <Check className="mr-2 h-4 md:h-5 w-4 md:w-5" /> Finalizar
                     </Button>
                     <Button
+                      haptic="heavy"
                       variant="secondary"
-                      className="w-full md:w-auto h-11 md:h-12 md:px-8 font-bold text-sm md:text-base"
+                      className="w-full md:w-auto min-h-12 md:px-8 font-bold text-sm md:text-base"
                       onClick={() => { setModalType('ABSENT'); setIsModalOpen(true); }}
                       disabled={isViewingFutureDate}
                       title={isViewingFutureDate ? 'Acao disponivel apenas para o dia atual' : ''}
@@ -1276,7 +1282,7 @@ export function BarberDashboard() {
                 {isViewingFutureDate ? 'Visualizando agendamentos futuros' : 'Nenhum cliente em atendimento'}
               </p>
               {waiting.length > 0 && !isViewingFutureDate && (
-                <Button onClick={handleCallNext} loading={submitting} className="text-sm md:text-base">
+                <Button haptic="medium" onClick={handleCallNext} loading={submitting} className="text-sm md:text-base">
                   <Play className="mr-2 h-4 w-4" /> Chamar Proximo ({waiting[0].clienteNome})
                 </Button>
               )}
