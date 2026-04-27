@@ -86,6 +86,9 @@ npm run dev
    - `richelcalazans6@gmail.com` (hardcoded)
    - `teste@teste.com` (hardcoded)
    - Ou qualquer email cadastrado como admin na collection `users` do Firestore
+3. Se não lembrar a senha, use o botão `Esqueci minha senha` na tela de login para receber o link de redefinição.
+
+> Importante: estar na lista de admin define permissão, mas não cria a conta no Firebase Auth automaticamente.
 
 ---
 

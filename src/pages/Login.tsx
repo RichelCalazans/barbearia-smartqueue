@@ -5,10 +5,27 @@ import { Scissors, LogIn, AlertCircle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { signIn, signInWithGoogle } from '../firebase';
+import { requestPasswordReset, signIn, signInWithGoogle } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 
 const GOOGLE_LOGIN_TIMEOUT_MS = 10_000;
+
+function mapAuthErrorMessage(err: { code?: string; message?: string }, fallback: string): string {
+  switch (err.code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Email ou senha incorretos';
+    case 'auth/too-many-requests':
+      return 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.';
+    case 'auth/invalid-api-key':
+      return 'Configuração de autenticação inválida. Verifique o Firebase.';
+    case 'auth/network-request-failed':
+      return 'Falha de rede ao autenticar. Verifique sua conexão e tente novamente.';
+    default:
+      return err.message || fallback;
+  }
+}
 
 export function Login() {
   const navigate = useNavigate();
@@ -16,6 +33,7 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [googleTimedOut, setGoogleTimedOut] = useState(false);
 
@@ -31,16 +49,17 @@ export function Login() {
       setError('Preencha email e senha');
       return;
     }
+    const normalizedEmail = email.trim().toLowerCase();
     setSubmitting(true);
     setError(null);
+    setInfo(null);
     try {
-      await signIn(email, password);
+      await signIn(normalizedEmail, password);
     } catch (err: any) {
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        setError('Email ou senha incorretos');
-      } else {
-        setError(err.message || 'Erro ao fazer login');
+      if (import.meta.env.DEV) {
+        console.error('[Login] Falha no login', { code: err?.code, message: err?.message });
       }
+      setError(mapAuthErrorMessage(err ?? {}, 'Erro ao fazer login'));
     } finally {
       setSubmitting(false);
     }
@@ -49,6 +68,7 @@ export function Login() {
   const handleGoogleLogin = async () => {
     setSubmitting(true);
     setError(null);
+    setInfo(null);
     setGoogleTimedOut(false);
 
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -63,6 +83,34 @@ export function Login() {
         setError('O login com Google demorou demais. Tente novamente.');
       } else if (err.code !== 'auth/popup-closed-by-user') {
         setError(err.message || 'Erro ao entrar com Google');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setError('Digite seu email para receber o link de redefinição de senha.');
+      setInfo(null);
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    setInfo(null);
+    try {
+      await requestPasswordReset(normalizedEmail);
+      setInfo(`Enviamos um email de redefinição para ${normalizedEmail}.`);
+    } catch (err: any) {
+      if (import.meta.env.DEV) {
+        console.error('[Login] Falha ao solicitar reset de senha', { code: err?.code, message: err?.message });
+      }
+      if (err?.code === 'auth/invalid-email') {
+        setError('Email inválido. Verifique o formato e tente novamente.');
+      } else {
+        setError(err?.message || 'Não foi possível enviar o email de redefinição.');
       }
     } finally {
       setSubmitting(false);
@@ -103,6 +151,13 @@ export function Login() {
               </div>
             )}
 
+            {info && (
+              <div className="p-4 rounded-xl bg-brand/10 border border-brand/30 text-brand text-sm flex items-center gap-3 text-left">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {info}
+              </div>
+            )}
+
             {user && !canAccessDashboard && (
               <div className="p-4 rounded-xl bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[#F59E0B] text-sm flex items-center gap-3 text-left">
                 <AlertCircle className="h-4 w-4 shrink-0" />
@@ -127,6 +182,15 @@ export function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+
+            <button
+              type="button"
+              onClick={handlePasswordReset}
+              disabled={submitting || loading}
+              className="text-sm text-brand hover:text-brand/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Esqueci minha senha
+            </button>
 
             <Button
               type="submit"

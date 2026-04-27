@@ -1,11 +1,19 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, loadEnv} from 'vite';
+import {defineConfig, loadEnv, type UserConfig} from 'vite';
+
+type VitestUserConfig = UserConfig & {
+  test: {
+    environment: 'happy-dom';
+    setupFiles: string;
+    globals: boolean;
+  };
+};
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
-  return {
+  const config: VitestUserConfig = {
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
@@ -32,5 +40,11 @@ export default defineConfig(({mode}) => {
         },
       },
     },
+    test: {
+      environment: 'happy-dom',
+      setupFiles: './src/test/setup.ts',
+      globals: true,
+    },
   };
+  return config;
 });

@@ -51,7 +51,11 @@
       "WebFetch(domain:ibb.co)",
       "Bash(npx vite:*)",
       "Bash(find /Users/richelcalazans/barbearia-smartqueue -name *sw* -o -name *service-worker* -o -name *manifest*)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(git reset *)",
+      "Bash(curl -s https://smartqueue-aeb94.web.app/)",
+      "Bash(curl -s \"https://smartqueue-aeb94.web.app/assets/index-Cm_qLVAZ.js\")",
+      "Bash(git branch *)"
     ]
   }
 }

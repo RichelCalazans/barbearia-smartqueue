@@ -1,5 +1,13 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+  User
+} from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, orderBy, onSnapshot, getDocs, addDoc, Timestamp } from 'firebase/firestore';
 
 // Import the Firebase configuration
@@ -12,6 +20,7 @@ export const auth = getAuth(app);
 
 // Auth Helpers
 export const signIn = (email: string, password: string) => signInWithEmailAndPassword(auth, email, password);
+export const requestPasswordReset = (email: string) => sendPasswordResetEmail(auth, email);
 const googleProvider = new GoogleAuthProvider();
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const signOut = () => auth.signOut();

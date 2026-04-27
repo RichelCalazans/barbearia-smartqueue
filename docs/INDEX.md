@@ -46,6 +46,11 @@ Se você é novo no projeto, siga esta ordem:
    - 8 débitos técnicos (refatoração)
    - 11 features planejadas (prioridades)
 
+8. **[plans/README.md](./plans/README.md)** (15 min)
+   - Planos executáveis de refatoração e hardening
+   - Admin custom claims, Vitest, Cloud Functions e BarberDashboard
+   - Ordem recomendada para a próxima rodada de implementação
+
 ---
 
 ## 📋 Checklist de Onboarding
@@ -73,7 +78,8 @@ docs/
 ├── FEATURES.md                ← Features implementadas
 ├── FLUXOS.md                  ← Diagramas de sequência
 ├── DEPLOY_CONFIG.md           ← Deploy + env vars
-└── PROBLEMAS_ROADMAP.md       ← Bugs + roadmap
+├── PROBLEMAS_ROADMAP.md       ← Bugs + roadmap
+└── plans/                     ← Planos de refatoração e hardening
 ```
 
 ---
@@ -169,4 +175,3 @@ Se tiver dúvida:
 ---
 
 **Boa sorte! 🚀**
-

@@ -18,10 +18,7 @@ import {
   Settings,
   Calendar,
   UserPlus,
-  Shield,
-  Mail,
   Plus,
-  Pencil,
   Trash2,
   MessageCircle,
   GripVertical,
@@ -68,6 +65,9 @@ import { DelayAlertBanner } from '../components/DelayAlertBanner';
 import { AgendaControls } from '../components/AgendaControls';
 import { SettingsForm } from '../components/SettingsForm';
 import { validateNome, validateTelefone } from '../validation';
+import { ManageServicesModalBody } from './barberDashboard/ManageServicesModalBody';
+import { ManageUsersModalBody } from './barberDashboard/ManageUsersModalBody';
+import { getModalTitle, type DashboardModalType, type NewUserForm, type ServiceForm } from './barberDashboard/types';
 
 interface SortableWaitingItemProps {
   item: QueueItem;
@@ -219,7 +219,7 @@ export function BarberDashboard() {
   const [state, setState] = useState<AppState | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'FINALIZE' | 'ABSENT' | 'OPEN_AGENDA' | 'OPEN_AGENDA_CUSTOM_TIME' | 'CLOSE_AGENDA' | 'CLOSE_AGENDA_CHOICE' | 'CLOSE_AGENDA_CLEAR' | 'CLOSE_AGENDA_KEEP' | 'PAUSE_AGENDA' | 'PAUSE_TIME' | 'RESUME_AGENDA' | 'SETTINGS' | 'MANAGE_USERS' | 'MANAGE_SERVICES' | 'RESET_ESTIMATIVAS' | 'RESET_STATS' | 'ADD_MANUAL_CLIENT' | null>(null);
+  const [modalType, setModalType] = useState<DashboardModalType | null>(null);
   const [pauseMinutes, setPauseMinutes] = useState<number>(15);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [tempConfig, setTempConfig] = useState<AppConfig | null>(null);
@@ -227,13 +227,13 @@ export function BarberDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [showAddUserForm, setShowAddUserForm] = useState(false);
-  const [newUser, setNewUser] = useState({ email: '', nome: '', role: 'BARBEIRO' as UserRole });
+  const [newUser, setNewUser] = useState<NewUserForm>({ email: '', nome: '', role: 'BARBEIRO' });
   const [userError, setUserError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTab>('FILA');
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [showAddServiceForm, setShowAddServiceForm] = useState(false);
-  const [editingService, setEditingService] = useState<any | null>(null);
-  const [newService, setNewService] = useState({ nome: '', tempoBase: 30, preco: 0 });
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [newService, setNewService] = useState<ServiceForm>({ nome: '', tempoBase: 30, preco: 0 });
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [delayMinutes, setDelayMinutes] = useState<number>(0);
   const [showDelayAlert, setShowDelayAlert] = useState<boolean>(false);
@@ -604,14 +604,15 @@ export function BarberDashboard() {
     let sourcePhone = '';
     try {
       const client = await ClientService.findById(clienteId);
-      if (client?.telefone) {
-        sourcePhone = client.telefone;
-      }
+      // Prefer canonical phone digits for WhatsApp links.
+      sourcePhone = client?.telefoneNormalizado || client?.telefone || '';
+      console.log('[WhatsApp Debug] clienteId:', clienteId, 'telefoneNormalizado:', client?.telefoneNormalizado, 'telefone:', client?.telefone);
     } catch {
       // Handled below with explicit error.
     }
 
     const phoneNumber = toWhatsAppNumber(sourcePhone);
+    console.log('[WhatsApp Debug] sourcePhone:', sourcePhone, 'phoneNumber:', phoneNumber);
     if (!phoneNumber) {
       setError('Nao foi possivel obter o telefone completo do cliente. Atualize o cadastro e tente novamente.');
       return;
@@ -620,7 +621,33 @@ export function BarberDashboard() {
     const message = `Oi ${clienteNome}! 👋 Você é o próximo para atendimento! Estou pronto aqui. 💈`;
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-    window.open(whatsappUrl, '_blank');
+    const popup = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    if (!popup) {
+      window.location.href = whatsappUrl;
+    }
+  };
+
+  const handleTestNotification = async (clienteNome: string) => {
+    console.log('[Notification Debug] permission before request:', NotificationService.isSupported() ? Notification.permission : 'unsupported');
+    const granted = await NotificationService.requestPermission();
+    console.log('[Notification Debug] permission after request:', NotificationService.isSupported() ? Notification.permission : 'unsupported', 'granted:', granted);
+
+    if (!granted) {
+      if (!NotificationService.isSupported()) {
+        setError('Este dispositivo nao suporta notificacoes no navegador atual.');
+        return;
+      }
+
+      if (Notification.permission === 'denied') {
+        setError('Notificacoes bloqueadas. No iOS, habilite em Ajustes > Safari > Notificacoes e permita para este site.');
+      } else {
+        setError('Permissao de notificacao nao concedida. Toque em "Permitir" quando o navegador solicitar.');
+      }
+      return;
+    }
+
+    NotificationService.notifyCalled(clienteNome);
+    setError(null);
   };
 
   const handleDelayAlertContinue = async () => {
@@ -841,7 +868,7 @@ export function BarberDashboard() {
     setSubmitting(true);
     setUserError(null);
     try {
-      await UserService.createUser(newUser.email, newUser.nome, newUser.role as UserRole);
+      await UserService.createUser(newUser.email, newUser.nome, newUser.role);
       const list = await UserService.listUsers();
       setUsers(list);
       setShowAddUserForm(false);
@@ -943,7 +970,7 @@ export function BarberDashboard() {
     }
   };
 
-  const handleToggleServiceActive = async (s: any) => {
+  const handleToggleServiceActive = async (s: Service) => {
     try {
       await ServiceService.update({ ...s, ativo: !s.ativo });
       setServices(prev => prev.map(x => x.id === s.id ? { ...x, ativo: !s.ativo } : x));
@@ -1156,7 +1183,7 @@ export function BarberDashboard() {
                     <Button
                       variant="outline"
                       className="w-full md:w-auto h-11 md:h-12 md:px-8 font-bold text-sm md:text-base border-yellow-500 text-yellow-500 hover:bg-yellow-500/10"
-                      onClick={() => NotificationService.notifyCalled(inService.clienteNome)}
+                      onClick={() => handleTestNotification(inService.clienteNome)}
                     >
                       <span className="mr-2">🔔</span> Testar Notificação
                     </Button>
@@ -1339,24 +1366,7 @@ export function BarberDashboard() {
             setManualFormError(null);
           }
         }}
-        title={
-          modalType === 'FINALIZE' ? 'Finalizar Atendimento' :
-          modalType === 'ABSENT' ? 'Marcar como Ausente' :
-          modalType === 'OPEN_AGENDA' ? 'Abrir Agenda' :
-          modalType === 'OPEN_AGENDA_CUSTOM_TIME' ? 'Abrir Fora do Horário' :
-          modalType === 'PAUSE_AGENDA' ? 'Pausar Agenda' :
-          modalType === 'PAUSE_TIME' ? 'Quanto Tempo Pausar?' :
-          modalType === 'RESUME_AGENDA' ? 'Retomar Agenda' :
-          modalType === 'CLOSE_AGENDA_CHOICE' ? 'Encerrar Dia' :
-          modalType === 'CLOSE_AGENDA_CLEAR' ? 'Encerrar Dia e Fila' :
-          modalType === 'CLOSE_AGENDA_KEEP' ? 'Encerrar Dia (Manter Fila)' :
-          modalType === 'SETTINGS' ? 'Configurações Automáticas' :
-          modalType === 'MANAGE_USERS' ? 'Gerenciar Usuários' :
-          modalType === 'MANAGE_SERVICES' ? 'Gerenciar Serviços' :
-          modalType === 'RESET_ESTIMATIVAS' ? 'Estimativas de Tempo' :
-          modalType === 'RESET_STATS' ? 'Resetar Estatísticas de Hoje' :
-          modalType === 'ADD_MANUAL_CLIENT' ? 'Adicionar Cliente Manualmente' : 'Fechar Agenda'
-        }
+        title={getModalTitle(modalType)}
         footer={
           modalType === 'PAUSE_TIME' ? (
             <>
@@ -1495,114 +1505,20 @@ export function BarberDashboard() {
             </div>
           </div>
         ) : modalType === 'MANAGE_USERS' ? (
-          <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
-            {userError && (
-              <div className="p-3 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {userError}
-              </div>
-            )}
-
-            {/* User list */}
-            <div className="space-y-2">
-              {users.length === 0 && !showAddUserForm && (
-                <p className="text-sm text-[#64748B] text-center py-4">Nenhum usuário cadastrado ainda.</p>
-              )}
-              {users.map(u => (
-                <div key={u.id} className="flex items-center justify-between p-3 rounded-xl bg-[#1A1A1A] border border-[#1E1E1E]">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-bold text-[#F1F5F9]">{u.nome}</p>
-                    <p className="text-xs text-[#64748B] flex items-center gap-1">
-                      <Mail className="h-3 w-3" />{u.email}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleToggleRole(u)}
-                      className={cn(
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors',
-                        u.role === 'SUPER_ADMIN' || u.role === 'ADMIN'
-                          ? 'bg-brand/10 text-brand hover:bg-[#EF4444]/10 hover:text-[#EF4444]'
-                          : 'bg-[#334155]/20 text-[#64748B] hover:bg-brand/10 hover:text-brand'
-                      )}
-                      title={`Mudar role (atual: ${u.role})`}
-                    >
-                      <Shield className="h-3 w-3" />
-                      {u.role === 'SUPER_ADMIN' ? 'Super' : u.role === 'ADMIN' ? 'Admin' : u.role === 'BARBEIRO' ? 'Barbeiro' : 'Recep'}
-                    </button>
-                    {isSuperAdmin && u.role !== 'SUPER_ADMIN' && (
-                      <button
-                        onClick={() => handleDeleteUser(u)}
-                        className="p-1.5 rounded-lg text-[#64748B] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors"
-                        title="Remover usuário"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Add user form */}
-            {showAddUserForm ? (
-              <div className="space-y-3 p-4 rounded-xl bg-[#111111] border border-brand/20">
-                <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Novo Usuário</p>
-                <input
-                  type="text"
-                  placeholder="Nome completo"
-                  value={newUser.nome}
-                  onChange={e => setNewUser(p => ({ ...p, nome: e.target.value }))}
-                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
-                />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={newUser.email}
-                  onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))}
-                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
-                />
-                <div className="space-y-2">
-                  <p className="text-xs text-[#64748B]">Função</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(['RECEPCIONISTA', 'BARBEIRO', 'ADMIN', 'SUPER_ADMIN'] as UserRole[]).map(role => (
-                      <button
-                        key={role}
-                        onClick={() => setNewUser(p => ({ ...p, role }))}
-                        className={cn(
-                          'p-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors',
-                          newUser.role === role
-                            ? 'bg-brand text-black'
-                            : 'bg-[#1A1A1A] text-[#64748B] border border-[#1E1E1E]'
-                        )}
-                      >
-                        {role === 'SUPER_ADMIN' ? 'Super' : role === 'ADMIN' ? 'Admin' : role === 'BARBEIRO' ? 'Barbeiro' : 'Recep'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-xs text-[#64748B]">
-                  O usuário receberá um email para criar sua senha.
-                </p>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => { setShowAddUserForm(false); setUserError(null); }} className="flex-1">
-                    Cancelar
-                  </Button>
-                  <Button size="sm" onClick={handleAddUser} loading={submitting} className="flex-1">
-                    Criar e Enviar Convite
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => { setShowAddUserForm(true); setUserError(null); }}
-              >
-                <UserPlus className="mr-2 h-4 w-4" /> Adicionar Usuário
-              </Button>
-            )}
-          </div>
+          <ManageUsersModalBody
+            users={users}
+            userError={userError}
+            showAddUserForm={showAddUserForm}
+            newUser={newUser}
+            submitting={submitting}
+            isSuperAdmin={isSuperAdmin}
+            onToggleRole={handleToggleRole}
+            onDeleteUser={handleDeleteUser}
+            onNewUserChange={setNewUser}
+            onCancelAddUser={() => { setShowAddUserForm(false); setUserError(null); }}
+            onAddUser={handleAddUser}
+            onStartAddUser={() => { setShowAddUserForm(true); setUserError(null); }}
+          />
         ) : modalType === 'SETTINGS' && tempConfig ? (
           <SettingsForm tempConfig={tempConfig} onChange={setTempConfig} />
         ) : modalType === 'PAUSE_TIME' ? (
@@ -1631,142 +1547,23 @@ export function BarberDashboard() {
             </div>
           </div>
         ) : modalType === 'MANAGE_SERVICES' ? (
-          <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
-            {serviceError && (
-              <div className="p-3 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {serviceError}
-              </div>
-            )}
-
-            {editingService ? (
-              <div className="space-y-3 p-4 rounded-xl bg-[#111111] border border-brand/20">
-                <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Editando Serviço</p>
-                <input
-                  type="text"
-                  placeholder="Nome do serviço"
-                  value={editingService.nome}
-                  onChange={e => setEditingService(p => ({ ...p, nome: e.target.value }))}
-                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Tempo (min)</label>
-                    <input
-                      type="number"
-                      value={editingService.tempoBase}
-                      onChange={e => setEditingService(p => ({ ...p, tempoBase: parseInt(e.target.value) || 0 }))}
-                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Preço (R$)</label>
-                    <input
-                      type="number"
-                      value={editingService.preco}
-                      onChange={e => setEditingService(p => ({ ...p, preco: parseFloat(e.target.value) || 0 }))}
-                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => { setEditingService(null); setServiceError(null); }} className="flex-1">
-                    Cancelar
-                  </Button>
-                  <Button size="sm" onClick={handleUpdateService} loading={submitting} className="flex-1">
-                    Salvar
-                  </Button>
-                </div>
-              </div>
-            ) : showAddServiceForm ? (
-              <div className="space-y-3 p-4 rounded-xl bg-[#111111] border border-brand/20">
-                <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Novo Serviço</p>
-                <input
-                  type="text"
-                  placeholder="Nome do serviço"
-                  value={newService.nome}
-                  onChange={e => setNewService(p => ({ ...p, nome: e.target.value }))}
-                  className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Tempo (min)</label>
-                    <input
-                      type="number"
-                      value={newService.tempoBase}
-                      onChange={e => setNewService(p => ({ ...p, tempoBase: parseInt(e.target.value) || 0 }))}
-                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase tracking-widest text-[#64748B] font-bold">Preço (R$)</label>
-                    <input
-                      type="number"
-                      value={newService.preco}
-                      onChange={e => setNewService(p => ({ ...p, preco: parseFloat(e.target.value) || 0 }))}
-                      className="flex h-11 w-full rounded-xl border border-[#1E1E1E] bg-[#0A0A0A] px-4 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => { setShowAddServiceForm(false); setServiceError(null); }} className="flex-1">
-                    Cancelar
-                  </Button>
-                  <Button size="sm" onClick={handleAddService} loading={submitting} className="flex-1">
-                    Criar Serviço
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => { setShowAddServiceForm(true); setServiceError(null); }}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Adicionar Serviço
-              </Button>
-            )}
-
-            <div className="space-y-2">
-              {services.length === 0 && !showAddServiceForm && (
-                <p className="text-sm text-[#64748B] text-center py-4">Nenhum serviço cadastrado ainda.</p>
-              )}
-              {services.map(s => (
-                <div key={s.id} className="flex items-center justify-between p-3 rounded-xl bg-[#1A1A1A] border border-[#1E1E1E]">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-bold text-[#F1F5F9]">{s.nome}</p>
-                    <p className="text-xs text-[#64748B] flex items-center gap-2">
-                      <Clock className="h-3 w-3" />{s.tempoBase}min
-                      <span className="text-brand">R$ {s.preco.toFixed(2)}</span>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleToggleServiceActive(s)}
-                      className={cn(
-                        'px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors',
-                        s.ativo ? 'bg-brand/10 text-brand' : 'bg-[#334155]/20 text-[#64748B]'
-                      )}
-                    >
-                      {s.ativo ? 'Ativo' : 'Inativo'}
-                    </button>
-                    <button
-                      onClick={() => setEditingService(s)}
-                      className="p-2 rounded-lg text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A]"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteService(s.id)}
-                      className="p-2 rounded-lg text-[#64748B] hover:text-[#EF4444] hover:bg-[#EF4444]/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ManageServicesModalBody
+            services={services}
+            serviceError={serviceError}
+            editingService={editingService}
+            showAddServiceForm={showAddServiceForm}
+            newService={newService}
+            submitting={submitting}
+            onEditingServiceChange={setEditingService}
+            onNewServiceChange={setNewService}
+            onCancelEditService={() => { setEditingService(null); setServiceError(null); }}
+            onCancelAddService={() => { setShowAddServiceForm(false); setServiceError(null); }}
+            onAddService={handleAddService}
+            onUpdateService={handleUpdateService}
+            onToggleServiceActive={handleToggleServiceActive}
+            onDeleteService={handleDeleteService}
+            onStartAddService={() => { setShowAddServiceForm(true); setServiceError(null); }}
+          />
         ) : modalType === 'RESET_ESTIMATIVAS' ? (
           config ? <ResetEstimativasModal config={config} /> : null
         ) : modalType === 'RESET_STATS' ? (

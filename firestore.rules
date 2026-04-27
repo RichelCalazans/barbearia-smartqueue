@@ -16,12 +16,54 @@ service cloud.firestore {
     // Firestore rules cannot import TS, so this list must be mirrored manually.
     function isSuperAdmin() {
       return isAuthenticated() &&
-        (request.auth.token.email == "richelcalazans6@gmail.com" ||
-         request.auth.token.email == "teste@teste.com");
+        (
+          (
+            request.auth.token.ativo == true &&
+            request.auth.token.role == 'SUPER_ADMIN'
+          ) ||
+          request.auth.token.email == "richelcalazans6@gmail.com" ||
+          request.auth.token.email == "teste@teste.com"
+        );
+    }
+
+    function hasActiveClaims() {
+      return isAuthenticated() && request.auth.token.ativo == true;
+    }
+
+    function hasRoleClaim(roles) {
+      return hasActiveClaims() &&
+        request.auth.token.role is string &&
+        request.auth.token.role in roles;
+    }
+
+    function hasPermissionClaim(permission) {
+      return hasActiveClaims() &&
+        request.auth.token.permissions is list &&
+        permission in request.auth.token.permissions;
+    }
+
+    function hasAdminClaim() {
+      return hasActiveClaims() &&
+        (
+          request.auth.token.isAdmin == true ||
+          hasRoleClaim(['ADMIN', 'SUPER_ADMIN']) ||
+          hasPermissionClaim('manage_users') ||
+          hasPermissionClaim('manage_settings')
+        );
+    }
+
+    function hasQueueManagerClaim() {
+      return hasActiveClaims() &&
+        (
+          request.auth.token.isQueueManager == true ||
+          hasRoleClaim(['ADMIN', 'SUPER_ADMIN', 'BARBEIRO', 'RECEPCIONISTA']) ||
+          hasPermissionClaim('manage_queue')
+        );
     }
 
     function isAdmin() {
       return isSuperAdmin() ||
+        hasAdminClaim() ||
         (isAuthenticated() &&
          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          (
@@ -39,6 +81,7 @@ service cloud.firestore {
 
     function isQueueManager() {
       return isSuperAdmin() ||
+        hasQueueManagerClaim() ||
         (isAuthenticated() &&
          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          (

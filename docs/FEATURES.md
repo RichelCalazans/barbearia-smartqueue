@@ -22,7 +22,7 @@ Como **dono da barbearia**, quero fazer login para acessar o dashboard admin, de
 - **Hook**: `src/hooks/useAuth.ts` — `onAuthStateChanged` listener
 - **Page**: `src/pages/Login.tsx` — UI de login
 - **Service**: `src/services/UserService.ts` — CRUD de usuários admin
-- **Firebase**: `src/firebase.ts` — `signIn`, `signInWithGoogle`, `signOut`, `getGoogleRedirectResult`
+- **Firebase**: `src/firebase.ts` — `signIn`, `requestPasswordReset`, `signInWithGoogle`, `signOut`
 - **Rules**: `firestore.rules` — `isAdmin()` helper
 
 ### Detalhes Importantes
@@ -30,6 +30,7 @@ Como **dono da barbearia**, quero fazer login para acessar o dashboard admin, de
 - Admin check **também** consulta Firestore `users` collection por email
 - Criação de novos usuários admin usa **REST API do Firebase Auth** (não o SDK) para não deslogar o admin atual
 - Após criar usuário, envia email de reset de senha automaticamente
+- A tela de login permite solicitar reset com o botão **Esqueci minha senha**
 
 ### Edge Cases
 - Google redirect result é checado no `Login.tsx` useEffect
@@ -39,7 +40,6 @@ Como **dono da barbearia**, quero fazer login para acessar o dashboard admin, de
 ### Próximos Passos
 - [ ] Remover emails hardcoded do `useAuth.ts` — depender apenas do Firestore
 - [ ] Adicionar feedback visual quando Google redirect falha
-- [ ] Implementar "esqueci minha senha" na tela de login
 
 ---
 
