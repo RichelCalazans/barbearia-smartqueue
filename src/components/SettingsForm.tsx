@@ -36,6 +36,18 @@ export function SettingsForm({ tempConfig, onChange }: Props) {
         />
       </div>
 
+      <div className="space-y-2">
+        <label className="text-xs text-[#64748B]">WhatsApp do Barbeiro</label>
+        <input
+          type="tel"
+          placeholder="Ex: 82999990000"
+          value={tempConfig.BARBER_WHATSAPP || ''}
+          onChange={e => set('BARBER_WHATSAPP', e.target.value.replace(/\D/g, ''))}
+          className="w-full bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#64748B] focus:outline-none focus:border-brand"
+        />
+        <p className="text-[10px] text-[#64748B]">Somente números com DDD (10 ou 11 dígitos)</p>
+      </div>
+
       <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Aparência</p>
 
       <div className="space-y-2">

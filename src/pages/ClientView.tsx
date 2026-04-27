@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Clock, AlertCircle, Scissors, Calendar } from 'lucide-react';
+import { User, Clock, AlertCircle, Scissors, Calendar, MessageCircle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -382,6 +382,46 @@ export function ClientView() {
     }
   };
 
+  const toWhatsAppNumber = (input: string): string => {
+    const digits = (input || '').replace(/\D/g, '');
+    if (!digits) return '';
+
+    if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+      return digits;
+    }
+    if (digits.length === 10 || digits.length === 11) {
+      return `55${digits}`;
+    }
+    return '';
+  };
+
+  const handleContactBarberWhatsApp = () => {
+    if (!activeTicket) return;
+
+    const sourcePhone = config?.BARBER_WHATSAPP || '';
+    const phoneNumber = toWhatsAppNumber(sourcePhone);
+    if (!phoneNumber) {
+      setError('WhatsApp do barbeiro não configurado. Peça para atualizar em Configurações.');
+      return;
+    }
+
+    const dateLabel = activeTicket.data ? activeTicket.data.split('-').reverse().join('/') : '';
+    const message = [
+      `Oi ${config?.BARBER_NAME || 'barbeiro'}!`,
+      `Acabei de reservar minha vez na fila.`,
+      `Cliente: ${activeTicket.clienteNome}`,
+      `Serviços: ${activeTicket.servicos}`,
+      dateLabel ? `Data: ${dateLabel}` : '',
+      `Previsão: ${activeTicket.horaPrevista || '--:--'}`,
+    ].filter(Boolean).join('\n');
+
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+    const popup = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    if (!popup) {
+      window.location.href = whatsappUrl;
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
@@ -491,6 +531,14 @@ export function ClientView() {
                 Cancelar minha vez
               </Button>
             )}
+
+            <Button
+              variant="outline"
+              className="w-full border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/10"
+              onClick={handleContactBarberWhatsApp}
+            >
+              <MessageCircle className="mr-2 h-4 w-4" /> Avisar barbeiro no WhatsApp
+            </Button>
           </Card>
 
           <p className="text-center text-xs text-[#64748B] leading-relaxed">

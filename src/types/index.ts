@@ -96,6 +96,7 @@ export interface AppConfig {
   OPENING_TIME: string;
   CLOSING_TIME: string;
   BARBER_EMAIL: string;
+  BARBER_WHATSAPP?: string;
   BARBER_NAME: string;
   SHOP_NAME: string;
   AUTO_REFRESH_SECONDS: number;

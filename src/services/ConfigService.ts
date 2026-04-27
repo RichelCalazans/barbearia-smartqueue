@@ -23,6 +23,7 @@ export class ConfigService {
     OPENING_TIME: '09:00',
     CLOSING_TIME: '19:00',
     BARBER_EMAIL: DEFAULT_BARBER_EMAIL,
+    BARBER_WHATSAPP: '',
     BARBER_NAME: 'Barbeiro',
     SHOP_NAME: 'Barbearia SmartQueue',
     AUTO_REFRESH_SECONDS: 12,
@@ -57,6 +58,7 @@ export class ConfigService {
         const updates: any = {};
         if (currentConfig.AUTO_OPEN_CLOSE === undefined) updates.AUTO_OPEN_CLOSE = this.DEFAULT_CONFIG.AUTO_OPEN_CLOSE;
         if (currentConfig.WEEKLY_SCHEDULE === undefined) updates.WEEKLY_SCHEDULE = this.DEFAULT_CONFIG.WEEKLY_SCHEDULE;
+        if (currentConfig.BARBER_WHATSAPP === undefined) updates.BARBER_WHATSAPP = this.DEFAULT_CONFIG.BARBER_WHATSAPP;
         
         if (Object.keys(updates).length > 0) {
           await updateDoc(doc(db, this.SETTINGS_PATH), updates);
