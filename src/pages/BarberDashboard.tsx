@@ -260,6 +260,8 @@ export function BarberDashboard() {
   const [resetStatsEndDate, setResetStatsEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [resetStatsResult, setResetStatsResult] = useState<string | null>(null);
   const [manualOpenCloseTime, setManualOpenCloseTime] = useState<string>('19:00');
+  const queueAlertInitializedRef = React.useRef(false);
+  const previousWaitingIdsRef = React.useRef<Set<string>>(new Set());
   const canManageServices = hasPermission('manage_services');
   const canManageUsers = hasPermission('manage_users');
   const canManageSettings = hasPermission('manage_settings');
@@ -346,6 +348,70 @@ export function BarberDashboard() {
       unsubState();
     };
   }, [canAccessDashboard, isAdmin]);
+
+  useEffect(() => {
+    if (!canAccessDashboard) return;
+
+    let cleaned = false;
+    const cleanupListeners = () => {
+      if (cleaned) return;
+      cleaned = true;
+      window.removeEventListener('pointerdown', handleUnlockAudio);
+      window.removeEventListener('touchstart', handleUnlockAudio);
+      window.removeEventListener('keydown', handleUnlockAudio);
+    };
+
+    const handleUnlockAudio = () => {
+      void (async () => {
+        const unlocked = await NotificationService.primeAudio();
+        console.log('[Queue Alert Debug] audio primed:', unlocked);
+      })();
+      cleanupListeners();
+    };
+
+    window.addEventListener('pointerdown', handleUnlockAudio);
+    window.addEventListener('touchstart', handleUnlockAudio);
+    window.addEventListener('keydown', handleUnlockAudio);
+
+    return cleanupListeners;
+  }, [canAccessDashboard]);
+
+  useEffect(() => {
+    if (selectedQueueDate !== today) {
+      queueAlertInitializedRef.current = false;
+      previousWaitingIdsRef.current = new Set();
+      return;
+    }
+
+    const currentWaitingIds = new Set(waiting.map((item) => item.id));
+
+    if (queueLoading || !queueAlertInitializedRef.current) {
+      if (!queueLoading) {
+        queueAlertInitializedRef.current = true;
+      }
+      previousWaitingIdsRef.current = currentWaitingIds;
+      return;
+    }
+
+    const newWaitingClients = waiting.filter((item) => !previousWaitingIdsRef.current.has(item.id));
+
+    if (newWaitingClients.length > 0) {
+      console.log(
+        '[Queue Alert Debug] novos clientes na fila:',
+        newWaitingClients.map((client) => ({
+          id: client.id,
+          nome: client.clienteNome,
+        }))
+      );
+
+      void (async () => {
+        const played = await NotificationService.playQueueEntryTone();
+        console.log('[Queue Alert Debug] queue entry tone played:', played);
+      })();
+    }
+
+    previousWaitingIdsRef.current = currentWaitingIds;
+  }, [waiting, queueLoading, selectedQueueDate, today]);
 
   // Auto-resume when pause time expires
   useEffect(() => {
@@ -628,6 +694,9 @@ export function BarberDashboard() {
   };
 
   const handleTestNotification = async (clienteNome: string) => {
+    const tonePlayed = await NotificationService.playTestTone();
+    console.log('[Notification Debug] test tone played:', tonePlayed);
+
     console.log('[Notification Debug] permission before request:', NotificationService.isSupported() ? Notification.permission : 'unsupported');
     const granted = await NotificationService.requestPermission();
     console.log('[Notification Debug] permission after request:', NotificationService.isSupported() ? Notification.permission : 'unsupported', 'granted:', granted);
@@ -647,6 +716,10 @@ export function BarberDashboard() {
     }
 
     NotificationService.notifyCalled(clienteNome);
+    if (!tonePlayed) {
+      setError('Notificacao enviada, mas o som local nao tocou. Verifique se o iPhone nao esta no silencioso e se o volume do app esta ativo.');
+      return;
+    }
     setError(null);
   };
 
