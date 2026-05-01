@@ -89,7 +89,9 @@ export function useQueueRealtime(config: AppConfig) {
   }, [config]);
 
   const addToQueue = useCallback(async (client: any, services: any[]) => {
-    await QueueService.addToQueue(client, services, config);
+    await QueueService.addToQueue(client, services, config, undefined, {
+      privilegedQueueWrites: true,
+    });
   }, [config]);
 
   return {

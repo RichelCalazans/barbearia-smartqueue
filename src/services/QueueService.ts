@@ -20,6 +20,7 @@ import { maskPhone, normalizePhone } from '../utils';
 interface AddToQueueOptions {
   manual?: boolean;
   desiredPosition?: number | null;
+  privilegedQueueWrites?: boolean;
 }
 
 interface RecalculateQueueOptions {
@@ -40,6 +41,67 @@ export class QueueService {
 
   private static isValidHHMM(value: unknown): value is string {
     return typeof value === 'string' && /^\d{2}:\d{2}$/.test(value);
+  }
+
+  private static getInitialQueueTime(config: AppConfig, targetDate: string, pauseMinutesRemaining = 0): string {
+    const isToday = targetDate === this.getToday();
+    const currentHHMM = this.getCurrentHHMM();
+    const initialTime = isToday && currentHHMM > config.OPENING_TIME
+      ? currentHHMM
+      : config.OPENING_TIME;
+
+    return pauseMinutesRemaining > 0
+      ? TimePredictorService.addMinutes(initialTime, pauseMinutesRemaining)
+      : initialTime;
+  }
+
+  private static async getPauseMinutesRemaining(targetDate: string): Promise<number> {
+    if (targetDate !== this.getToday()) return 0;
+
+    const stateDoc = await getDoc(doc(db, 'config', 'state'));
+    const state = stateDoc.exists() ? stateDoc.data() : { agendaPausada: false, tempoRetomada: null };
+    if (!state.agendaPausada || !state.tempoRetomada) return 0;
+
+    return Math.max(0, Math.ceil((state.tempoRetomada - Date.now()) / 60000));
+  }
+
+  private static calculateAppendTime(
+    activeQueue: QueueItem[],
+    config: AppConfig,
+    targetDate: string,
+    pauseMinutesRemaining = 0
+  ): string {
+    let lastTime = this.getInitialQueueTime(config, targetDate, pauseMinutesRemaining);
+    const isToday = targetDate === this.getToday();
+    const currentHHMM = this.getCurrentHHMM();
+
+    for (const item of activeQueue) {
+      if (item.status === 'EM_ATENDIMENTO') {
+        if (isToday) {
+          const elapsed = (Date.now() - (item.horaChamada || Date.now())) / 60000;
+          const remaining = Math.max(0, item.tempoEstimado - elapsed);
+          lastTime = TimePredictorService.addMinutes(
+            currentHHMM,
+            remaining + config.BUFFER_MINUTES + pauseMinutesRemaining
+          );
+        } else {
+          const referenceStart = this.isValidHHMM(item.horaPrevista) ? item.horaPrevista : config.OPENING_TIME;
+          lastTime = TimePredictorService.addMinutes(
+            referenceStart,
+            item.tempoEstimado + config.BUFFER_MINUTES
+          );
+        }
+        continue;
+      }
+
+      const referenceStart = this.isValidHHMM(item.horaPrevista) ? item.horaPrevista : lastTime;
+      lastTime = TimePredictorService.addMinutes(
+        referenceStart,
+        item.tempoEstimado + config.BUFFER_MINUTES
+      );
+    }
+
+    return lastTime;
   }
 
   private static buildActiveQueueQuery(targetDate: string) {
@@ -90,6 +152,9 @@ export class QueueService {
       const baseTime = services.reduce((sum, s) => sum + s.tempoBase, 0);
       const predictedTime = TimePredictorService.predictServiceTime(client, baseTime, config);
       const normalizedPhone = normalizePhone(client.telefoneNormalizado || client.telefone);
+      const canWriteExistingQueueItems =
+        options.privilegedQueueWrites ?? (options.manual === true || typeof options.desiredPosition === 'number');
+      const pauseMinutesRemaining = await this.getPauseMinutesRemaining(targetDate);
 
       let createdTicketId = '';
 
@@ -110,7 +175,7 @@ export class QueueService {
         const waitingQueue = activeQueue.filter(item => item.status === 'AGUARDANDO');
 
         const requestedPosition =
-          typeof options.desiredPosition === 'number'
+          canWriteExistingQueueItems && typeof options.desiredPosition === 'number'
             ? Math.trunc(options.desiredPosition)
             : waitingQueue.length + 1;
 
@@ -128,7 +193,7 @@ export class QueueService {
           servicos: services.map(s => s.nome).join(', '),
           servicosIds: services.map(s => s.id),
           tempoEstimado: predictedTime,
-          horaPrevista: config.OPENING_TIME,
+          horaPrevista: this.calculateAppendTime(activeQueue, config, targetDate, pauseMinutesRemaining),
           status: 'AGUARDANDO',
           horaEntrada: now,
           data: targetDate,
@@ -153,13 +218,13 @@ export class QueueService {
             return;
           }
 
-          if (item.posicao !== nextPosition) {
+          if (canWriteExistingQueueItems && item.posicao !== nextPosition) {
             transaction.update(doc(db, path, item.id), { posicao: nextPosition });
           }
         });
       });
 
-      if (createdTicketId) {
+      if (createdTicketId && canWriteExistingQueueItems) {
         await this.recalculateQueue(config, targetDate);
       }
 
@@ -239,22 +304,8 @@ export class QueueService {
 
       const isToday = date === this.getToday();
       const currentHHMM = this.getCurrentHHMM();
-      let pauseMinutesRemaining = 0;
-      if (isToday) {
-        const stateDoc = await getDoc(doc(db, 'config', 'state'));
-        const state = stateDoc.exists() ? stateDoc.data() : { agendaPausada: false, tempoRetomada: null };
-        if (state.agendaPausada && state.tempoRetomada) {
-          pauseMinutesRemaining = Math.max(0, Math.ceil((state.tempoRetomada - Date.now()) / 60000));
-        }
-      }
-
-      const initialTime = isToday && currentHHMM > config.OPENING_TIME
-        ? currentHHMM
-        : config.OPENING_TIME;
-
-      let lastTime = pauseMinutesRemaining > 0
-        ? TimePredictorService.addMinutes(initialTime, pauseMinutesRemaining)
-        : initialTime;
+      const pauseMinutesRemaining = await this.getPauseMinutesRemaining(date);
+      let lastTime = this.getInitialQueueTime(config, date, pauseMinutesRemaining);
       const hasInService = queue.some(item => item.status === 'EM_ATENDIMENTO');
       const preferredFirstWaitingTime = options.preferredFirstWaitingTime;
       if (!hasInService && this.isValidHHMM(preferredFirstWaitingTime)) {
