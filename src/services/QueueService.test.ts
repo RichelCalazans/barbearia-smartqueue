@@ -118,3 +118,38 @@ describe('QueueService.addToQueue', () => {
     expect(recalculateSpy).toHaveBeenCalledWith(createAppConfig(), '2026-04-27');
   });
 });
+
+describe('QueueService.updateTicketServices', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('updates ticket services, estimated time, and recalculates the queue', async () => {
+    firestoreMocks.getDoc.mockResolvedValue({
+      id: 'client-1',
+      exists: () => true,
+      data: () => createClient(),
+    });
+    const recalculateSpy = vi.spyOn(QueueService, 'recalculateQueue').mockResolvedValue();
+
+    await QueueService.updateTicketServices(
+      createQueueItem({
+        id: 'queue-1',
+        clienteId: 'client-1',
+        data: '2026-04-27',
+      }),
+      [createService({id: 'service-2', nome: 'Degradê', tempoBase: 45})],
+      createAppConfig(),
+      '2026-04-27'
+    );
+
+    expect(firestoreMocks.updateDoc).toHaveBeenCalledOnce();
+    expect(firestoreMocks.updateDoc.mock.calls[0][0]).toMatchObject({id: 'queue-1'});
+    expect(firestoreMocks.updateDoc.mock.calls[0][1]).toEqual({
+      servicos: 'Degradê',
+      servicosIds: ['service-2'],
+      tempoEstimado: 56,
+    });
+    expect(recalculateSpy).toHaveBeenCalledWith(createAppConfig(), '2026-04-27');
+  });
+});

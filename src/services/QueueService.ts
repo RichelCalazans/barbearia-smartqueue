@@ -264,6 +264,40 @@ export class QueueService {
   }
 
   /**
+   * Updates the services selected for a ticket and refreshes queue predictions.
+   */
+  static async updateTicketServices(
+    queueItem: QueueItem,
+    services: Service[],
+    config: AppConfig,
+    scheduledDate?: string
+  ): Promise<void> {
+    const path = `${this.COLLECTION}/${queueItem.id}`;
+    try {
+      if (!services.length) {
+        throw new Error('Selecione ao menos um serviço.');
+      }
+
+      const clientDoc = await getDoc(doc(db, 'clients', queueItem.clienteId));
+      const client = clientDoc.exists()
+        ? ({ id: clientDoc.id, ...clientDoc.data() } as Client)
+        : null;
+      const baseTime = services.reduce((sum, service) => sum + service.tempoBase, 0);
+      const predictedTime = TimePredictorService.predictServiceTime(client, baseTime, config);
+
+      await updateDoc(doc(db, this.COLLECTION, queueItem.id), {
+        servicos: services.map(service => service.nome).join(', '),
+        servicosIds: services.map(service => service.id),
+        tempoEstimado: predictedTime,
+      });
+
+      await this.recalculateQueue(config, scheduledDate || queueItem.data);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  }
+
+  /**
    * Checks if a date has available slots in the queue.
    */
   static async checkDateAvailability(

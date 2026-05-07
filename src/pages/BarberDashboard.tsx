@@ -69,6 +69,16 @@ import { ManageServicesModalBody } from './barberDashboard/ManageServicesModalBo
 import { ManageUsersModalBody } from './barberDashboard/ManageUsersModalBody';
 import { getModalTitle, type DashboardModalType, type NewUserForm, type ServiceForm } from './barberDashboard/types';
 
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (remainingMinutes === 0) return `${hours}h`;
+  return `${hours}h ${remainingMinutes}min`;
+}
+
 interface SortableWaitingItemProps {
   item: QueueItem;
   index: number;
@@ -79,6 +89,7 @@ interface SortableWaitingItemProps {
   onMoveUp: (ticketId: string) => void;
   onMoveDown: (ticketId: string) => void;
   onRemove: (ticket: QueueItem) => void;
+  onEditServices: (ticket: QueueItem) => void;
   onWhatsApp: (clienteId: string, clienteNome: string) => void;
   reordering: boolean;
 }
@@ -93,6 +104,7 @@ function SortableWaitingItem({
   onMoveUp,
   onMoveDown,
   onRemove,
+  onEditServices,
   onWhatsApp,
   reordering,
 }: SortableWaitingItemProps) {
@@ -140,6 +152,14 @@ function SortableWaitingItem({
           <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
+              onClick={() => onEditServices(item)}
+              className="rounded-lg p-2 text-[#64748B] hover:bg-brand/10 hover:text-brand"
+              title="Editar serviços"
+            >
+              <Scissors className="h-4 w-4 md:h-5 md:w-5" />
+            </button>
+            <button
+              type="button"
               onClick={() => onWhatsApp(item.clienteId, item.clienteNome)}
               className="rounded-lg p-2 text-brand hover:bg-brand/10"
               title="Chamar via WhatsApp"
@@ -179,7 +199,9 @@ function SortableWaitingItem({
             >
               <ArrowDown className="h-4 w-4" />
             </Button>
-            <span className="text-xs text-[#64748B]">Previsto: {item.horaPrevista}</span>
+            <span className="text-xs text-[#64748B]">
+              Previsto: {item.horaPrevista} · {formatDuration(item.tempoEstimado)}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -251,6 +273,10 @@ export function BarberDashboard() {
   });
   const [manualFormError, setManualFormError] = useState<string | null>(null);
   const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [editingTicketServices, setEditingTicketServices] = useState<QueueItem | null>(null);
+  const [editingTicketServiceIds, setEditingTicketServiceIds] = useState<string[]>([]);
+  const [editingTicketError, setEditingTicketError] = useState<string | null>(null);
+  const [editingTicketSubmitting, setEditingTicketSubmitting] = useState(false);
   const [reordering, setReordering] = useState(false);
   const [positionDrafts, setPositionDrafts] = useState<Record<string, string>>({});
   const [skipPauseConfirm, setSkipPauseConfirm] = useState<boolean>(() => {
@@ -265,6 +291,10 @@ export function BarberDashboard() {
   const canManageServices = hasPermission('manage_services');
   const canManageUsers = hasPermission('manage_users');
   const canManageSettings = hasPermission('manage_settings');
+  const selectedManualServiceItems = availableServices.filter(service => manualForm.serviceIds.includes(service.id));
+  const manualBaseMinutes = selectedManualServiceItems.reduce((sum, service) => sum + service.tempoBase, 0);
+  const selectedEditingServiceItems = availableServices.filter(service => editingTicketServiceIds.includes(service.id));
+  const editingBaseMinutes = selectedEditingServiceItems.reduce((sum, service) => sum + service.tempoBase, 0);
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
@@ -773,6 +803,69 @@ export function BarberDashboard() {
     }));
   };
 
+  const openEditTicketServicesModal = (ticket: QueueItem) => {
+    ServiceService.listActive().then(setAvailableServices).catch(() => {});
+    setEditingTicketServices(ticket);
+    setEditingTicketServiceIds(ticket.servicosIds || []);
+    setEditingTicketError(null);
+    setModalType('EDIT_TICKET_SERVICES');
+    setIsModalOpen(true);
+  };
+
+  const toggleEditingTicketService = (serviceId: string) => {
+    setEditingTicketServiceIds(prev =>
+      prev.includes(serviceId)
+        ? prev.filter(id => id !== serviceId)
+        : [...prev, serviceId]
+    );
+  };
+
+  const handleUpdateTicketServices = async () => {
+    if (!config || !editingTicketServices) {
+      setEditingTicketError('Ticket ou configuração indisponível. Recarregue a página.');
+      return;
+    }
+
+    if (editingTicketServiceIds.length === 0) {
+      setEditingTicketError('Selecione ao menos um serviço.');
+      return;
+    }
+
+    const selectedServices = availableServices.filter(service => editingTicketServiceIds.includes(service.id));
+    if (!selectedServices.length) {
+      setEditingTicketError('Não foi possível carregar os serviços selecionados.');
+      return;
+    }
+
+    setEditingTicketSubmitting(true);
+    setEditingTicketError(null);
+
+    try {
+      await QueueService.updateTicketServices(
+        editingTicketServices,
+        selectedServices,
+        config,
+        selectedQueueDate
+      );
+      setIsModalOpen(false);
+      setModalType(null);
+      setEditingTicketServices(null);
+      setEditingTicketServiceIds([]);
+      setError(null);
+    } catch (err: any) {
+      let message = 'Erro ao atualizar serviços do cliente.';
+      try {
+        const parsed = JSON.parse(err.message);
+        message = parsed.error || message;
+      } catch {
+        message = err.message || message;
+      }
+      setEditingTicketError(message);
+    } finally {
+      setEditingTicketSubmitting(false);
+    }
+  };
+
   const moveQueueTicket = async (ticketId: string, position: number) => {
     if (!config) return;
     setReordering(true);
@@ -1241,6 +1334,13 @@ export function BarberDashboard() {
                       <MessageCircle className="mr-2 h-4 md:h-5 w-4 md:w-5" /> WhatsApp
                     </Button>
                     <Button
+                      variant="outline"
+                      className="w-full md:w-auto min-h-12 md:px-8 font-bold text-sm md:text-base"
+                      onClick={() => openEditTicketServicesModal(inService)}
+                    >
+                      <Scissors className="mr-2 h-4 md:h-5 w-4 md:w-5" /> Serviços
+                    </Button>
+                    <Button
                       haptic="medium"
                       className="w-full md:w-auto min-h-12 md:px-8 font-bold text-sm md:text-base"
                       onClick={() => { setModalType('FINALIZE'); setIsModalOpen(true); }}
@@ -1368,6 +1468,7 @@ export function BarberDashboard() {
                         onMoveUp={handleMoveUp}
                         onMoveDown={handleMoveDown}
                         onRemove={handleRemoveFromQueue}
+                        onEditServices={openEditTicketServicesModal}
                         onWhatsApp={handleWhatsApp}
                         reordering={reordering}
                       />
@@ -1444,6 +1545,11 @@ export function BarberDashboard() {
           if (modalType === 'ADD_MANUAL_CLIENT') {
             setManualFormError(null);
           }
+          if (modalType === 'EDIT_TICKET_SERVICES') {
+            setEditingTicketServices(null);
+            setEditingTicketServiceIds([]);
+            setEditingTicketError(null);
+          }
         }}
         title={getModalTitle(modalType)}
         footer={
@@ -1497,6 +1603,28 @@ export function BarberDashboard() {
                 Adicionar na Fila
               </Button>
             </>
+          ) : modalType === 'EDIT_TICKET_SERVICES' ? (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingTicketServices(null);
+                  setEditingTicketServiceIds([]);
+                  setEditingTicketError(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleUpdateTicketServices}
+                loading={editingTicketSubmitting}
+                disabled={editingTicketServiceIds.length === 0}
+              >
+                Salvar Serviços
+              </Button>
+            </>
           ) : modalType === 'RESET_STATS' ? (
             <>
               <Button variant="ghost" onClick={() => { setIsModalOpen(false); setResetStatsResult(null); }}>Cancelar</Button>
@@ -1522,7 +1650,52 @@ export function BarberDashboard() {
           ) : undefined
         }
       >
-        {modalType === 'ADD_MANUAL_CLIENT' ? (
+        {modalType === 'EDIT_TICKET_SERVICES' ? (
+          <div className="space-y-4">
+            {editingTicketError && (
+              <div className="p-3 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {editingTicketError}
+              </div>
+            )}
+            {editingTicketServices && (
+              <div className="rounded-xl border border-brand/20 bg-brand/5 p-3 text-xs text-[#64748B]">
+                <p className="font-bold text-[#F1F5F9] text-sm">{editingTicketServices.clienteNome}</p>
+                <p className="mt-1">Atual: {editingTicketServices.servicos}</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Serviços</p>
+              <div className="flex flex-wrap gap-2">
+                {availableServices.map(service => (
+                  <button
+                    key={service.id}
+                    type="button"
+                    onClick={() => toggleEditingTicketService(service.id)}
+                    className={cn(
+                      'inline-flex min-h-10 items-center justify-center rounded-full border px-3 py-2 text-xs font-medium transition-all',
+                      editingTicketServiceIds.includes(service.id)
+                        ? 'bg-brand/10 border-brand text-brand'
+                        : 'bg-[#111111] border-[#1E1E1E] text-[#64748B] hover:border-brand/40'
+                    )}
+                  >
+                    {service.nome} · {formatDuration(service.tempoBase)}
+                  </button>
+                ))}
+              </div>
+              {selectedEditingServiceItems.length > 0 && (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-[#1E1E1E] bg-[#111111] px-3 py-2 text-xs text-[#64748B]">
+                  <span>
+                    {selectedEditingServiceItems.length} {selectedEditingServiceItems.length === 1 ? 'serviço' : 'serviços'}
+                  </span>
+                  <span className="font-bold text-[#F1F5F9]">
+                    {formatDuration(editingBaseMinutes)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : modalType === 'ADD_MANUAL_CLIENT' ? (
           <div className="space-y-4">
             {manualFormError && (
               <div className="p-3 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm flex items-center gap-2">
@@ -1565,10 +1738,20 @@ export function BarberDashboard() {
                           : 'bg-[#111111] border-[#1E1E1E] text-[#64748B] hover:border-brand/40'
                       )}
                     >
-                      {service.nome}
+                      {service.nome} · {formatDuration(service.tempoBase)}
                     </button>
                   ))}
                 </div>
+                {selectedManualServiceItems.length > 0 && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-[#1E1E1E] bg-[#111111] px-3 py-2 text-xs text-[#64748B]">
+                    <span>
+                      {selectedManualServiceItems.length} {selectedManualServiceItems.length === 1 ? 'serviço' : 'serviços'}
+                    </span>
+                    <span className="font-bold text-[#F1F5F9]">
+                      {formatDuration(manualBaseMinutes)}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <p className="text-xs font-bold uppercase tracking-widest text-[#64748B]">Posição na fila</p>

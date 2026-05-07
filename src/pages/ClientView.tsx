@@ -24,6 +24,18 @@ import {
   validateDataAgendamento,
 } from '../validation';
 
+const LONG_SERVICE_WARNING_MINUTES = 180;
+
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (remainingMinutes === 0) return `${hours}h`;
+  return `${hours}h ${remainingMinutes}min`;
+}
+
 function ShopLogo({ url, name, invert }: { url?: string; name: string; invert?: boolean }) {
   const [failed, setFailed] = useState(false);
 
@@ -69,8 +81,11 @@ export function ClientView() {
   const [checkingDates, setCheckingDates] = useState(false);
   const [selectedDateInfo, setSelectedDateInfo] = useState<{ date: string; label: string; schedule?: any } | null>(null);
   const [barberDelayMinutes, setBarberDelayMinutes] = useState<number>(0);
+  const [longServiceConfirmed, setLongServiceConfirmed] = useState(false);
 
   const { queue } = useQueue();
+  const selectedServiceItems = services.filter(s => selectedServices.includes(s.id));
+  const selectedBaseMinutes = selectedServiceItems.reduce((sum, service) => sum + service.tempoBase, 0);
 
   useEffect(() => {
     const loaded = { config: false, state: false };
@@ -199,6 +214,10 @@ export function ClientView() {
     return () => clearInterval(interval);
   }, [queue]);
 
+  useEffect(() => {
+    setLongServiceConfirmed(false);
+  }, [selectedServices, dataAgendamento]);
+
   const handleDateNascimentoChange = (value: string) => {
     // Remove non-numeric characters
     let cleaned = value.replace(/\D/g, '');
@@ -300,6 +319,22 @@ export function ClientView() {
       return;
     }
 
+    const chosenServices = services.filter(s => selectedServices.includes(s.id));
+    const baseTime = chosenServices.reduce((sum, service) => sum + service.tempoBase, 0);
+    const estimatedSelectionTime = Math.round(baseTime * (config.NEW_CLIENT_MULTIPLIER || 1.25));
+
+    if (
+      chosenServices.length > 1 &&
+      estimatedSelectionTime >= LONG_SERVICE_WARNING_MINUTES &&
+      !longServiceConfirmed
+    ) {
+      setLongServiceConfirmed(true);
+      setError(
+        `Você selecionou ${chosenServices.length} serviços, com duração aproximada de ${formatDuration(estimatedSelectionTime)}. Confirme novamente se esta combinação estiver correta.`
+      );
+      return;
+    }
+
     // Determine target date: empty means "Hoje" was selected
     const targetDate = dataAgendamento || new Date().toISOString().split('T')[0];
 
@@ -324,9 +359,6 @@ export function ClientView() {
         );
         client = createdOrFound.client;
       }
-
-      const chosenServices = services.filter(s => selectedServices.includes(s.id));
-
       // Request browser notification permission
       await NotificationService.requestPermission();
 
@@ -810,8 +842,9 @@ export function ClientView() {
                     {services.map((service) => (
                       <ServiceChip
                         key={service.id}
-                        label={service.nome}
+                        label={`${service.nome} · ${formatDuration(service.tempoBase)}`}
                         selected={selectedServices.includes(service.id)}
+                        aria-pressed={selectedServices.includes(service.id)}
                         onClick={() => {
                           setSelectedServices(prev =>
                             prev.includes(service.id)
@@ -822,6 +855,16 @@ export function ClientView() {
                       />
                     ))}
                   </div>
+                  {selectedServiceItems.length > 0 && (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#1E1E1E] bg-[#111111] px-3 py-2 text-xs text-[#64748B]">
+                      <span>
+                        {selectedServiceItems.length} {selectedServiceItems.length === 1 ? 'serviço' : 'serviços'}
+                      </span>
+                      <span className="font-bold text-[#F1F5F9]">
+                        {formatDuration(selectedBaseMinutes)}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <Button
                   onClick={() => setStep(2)}
@@ -909,7 +952,9 @@ export function ClientView() {
                 </div>
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
                   <Button variant="ghost" onClick={() => setStep(2)} className="w-full sm:flex-1">Voltar</Button>
-                  <Button haptic="medium" type="submit" className="min-h-12 w-full font-bold sm:h-14 sm:flex-[2]" loading={submitting}>Entrar na Fila</Button>
+                  <Button haptic="medium" type="submit" className="min-h-12 w-full font-bold sm:h-14 sm:flex-[2]" loading={submitting}>
+                    {longServiceConfirmed ? 'Confirmar Tempo' : 'Entrar na Fila'}
+                  </Button>
                 </div>
               </motion.form>
             )}
@@ -939,7 +984,7 @@ export function ClientView() {
                     className="min-h-12 w-full font-bold sm:h-14 sm:flex-[2]"
                     loading={submitting}
                   >
-                    Confirmar e Entrar
+                    {longServiceConfirmed ? 'Confirmar Tempo' : 'Confirmar e Entrar'}
                   </Button>
                 </div>
               </motion.div>
@@ -978,7 +1023,7 @@ export function ClientView() {
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
                   <Button variant="ghost" onClick={() => setStep(2)} className="w-full sm:flex-1">Voltar</Button>
                   <Button haptic="medium" type="submit" className="min-h-12 w-full font-bold sm:h-14 sm:flex-[2]" loading={submitting}>
-                    Completar e Entrar
+                    {longServiceConfirmed ? 'Confirmar Tempo' : 'Completar e Entrar'}
                   </Button>
                 </div>
               </motion.form>

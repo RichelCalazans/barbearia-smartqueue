@@ -17,6 +17,7 @@ export type DashboardModalType =
   | 'MANAGE_SERVICES'
   | 'RESET_ESTIMATIVAS'
   | 'RESET_STATS'
+  | 'EDIT_TICKET_SERVICES'
   | 'ADD_MANUAL_CLIENT';
 
 export interface NewUserForm {
@@ -44,6 +45,7 @@ const MODAL_TITLES: Record<DashboardModalType, string> = {
   MANAGE_SERVICES: 'Gerenciar Serviços',
   RESET_ESTIMATIVAS: 'Estimativas de Tempo',
   RESET_STATS: 'Resetar Estatísticas de Hoje',
+  EDIT_TICKET_SERVICES: 'Editar Serviços',
   ADD_MANUAL_CLIENT: 'Adicionar Cliente Manualmente',
 };
 
